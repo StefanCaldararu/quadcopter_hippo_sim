@@ -41,18 +41,18 @@ class vis(object):
         arm1 = [[p1[0,0],p3[0,0]], [p1[1,0],p3[1,0]], [p1[2,0],p3[2,0]]]
         arm2 = [[p2[0,0],p4[0,0]], [p2[1,0],p4[1,0]], [p2[2,0],p4[2,0]]]
         self.ax.cla()
-        self.ax.set_xlim(-5, 5)
-        self.ax.set_ylim(-5, 5)
-        self.ax.set_zlim(-5, 5)
+        # self.ax.set_xlim(-5, 5)
+        # self.ax.set_ylim(-5, 5)
+        # self.ax.set_zlim(-5, 5)
         self.ax.set_xlabel('X-axis')
         self.ax.set_ylabel('Y-axis')
         self.ax.set_zlabel('Z-axis')
-        self.ax.set_title('Line Segment in 3D Space')
+        self.ax.set_title('Quadcopter in 3D Space')
         self.ax.grid(True)
         plt.gcf().canvas.mpl_connect('key_release_event', lambda event: [exit(0) if event.key == 'escape' else None])
         self.ax.plot(arm1[0], arm1[1],arm1[2], color = 'red')
         self.ax.plot(arm2[0],arm2[1],arm2[2], color = 'blue')
-        plt.pause(0.003)
+        plt.pause(0.1)
 
 
 

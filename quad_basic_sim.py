@@ -22,13 +22,14 @@ def main():
     xhist = [x]
     plt = vis(0.5)
     for t in time:
-        if(t<0.1):
+        if(t==1.5):
             x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u+drift, dt)
-        elif(t<0.2):
-            x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u-drift, dt)
+        # elif(t<0.2):
+        #     x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u-drift, dt)
         else:
             x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u, dt)
-        plt.plot(x, theta)
+        rot = np.array([[0],[0],[t]])
+        plt.plot(x, rot)
         #xhist.append(x)
         #print(x)
     
