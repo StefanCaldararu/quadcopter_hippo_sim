@@ -13,12 +13,19 @@ def main():
     thetadot = np.array([[0],[0],[0]])
     angv = 437.3815
     u = np.array([[angv],[angv],[angv],[angv]])
+    #drift = np.array([[15],[15],[-15],[-15]])
+    drift = np.array([[0],[0],[0],[0]])
     start = 0
     end = 10
     time = np.arange(start, end, dt)
     xhist = [x]
     for t in time:
-        x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u, dt)
+        if(t<0.1):
+            x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u+drift, dt)
+        elif(t<0.2):
+            x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u-drift, dt)
+        else:
+            x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u, dt)
         xhist.append(x)
         print(x)
     
@@ -77,9 +84,9 @@ def motion_model(x, xdot, theta, thetadot, u, dt):
         [rdot]
     ])
     thetadot = thetadot+dt*thetaddot
-    theta = theta+thetadot
-    xdot = xdot+d_ddot
-    x = x+xdot
+    theta = theta+thetadot*dt
+    xdot = xdot+d_ddot*dt
+    x = x+xdot*dt
 
     return x, xdot, theta, thetadot
 
