@@ -1,7 +1,8 @@
+#author: Stefan Caldararu
 #sim of quadcopter dynamics. possible to modify later to reflect hippocampus dynamics. Later sims will revolve around motor failure and maintaining the control of the vehicle. 
 #ref: https://ieeexplore.ieee.org/document/6906588
 
-import matplotlib.pyplot as plt
+from quad_vis import vis
 import numpy as np
 
 
@@ -19,6 +20,7 @@ def main():
     end = 10
     time = np.arange(start, end, dt)
     xhist = [x]
+    plt = vis(0.5)
     for t in time:
         if(t<0.1):
             x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u+drift, dt)
@@ -26,8 +28,9 @@ def main():
             x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u-drift, dt)
         else:
             x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u, dt)
-        xhist.append(x)
-        print(x)
+        plt.plot(x, theta)
+        #xhist.append(x)
+        #print(x)
     
 
     
