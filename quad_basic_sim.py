@@ -4,34 +4,37 @@
 
 from quad_vis import vis
 import numpy as np
+from controller import controller
 
 
 def main():
-    x = np.array([[0],[0],[10]])
+    x = np.array([[0],[0],[3]])
     dt = 0.05
     xdot = np.array([[0],[0],[0]])
     theta = np.array([[0],[0],[0]])
     thetadot = np.array([[0],[0],[0]])
-    angv = 437.3815
+    angv = 430.3815
     u = np.array([[angv],[angv],[angv],[angv]])
-    #drift = np.array([[15],[15],[-15],[-15]])
-    drift = np.array([[0],[0],[0],[0]])
     start = 0
     end = 10
     time = np.arange(start, end, dt)
     xhist = [x]
     plt = vis(0.5)
+    cont = controller()
     for t in time:
-        if(t==1.5):
-            x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u+drift, dt)
-        # elif(t<0.2):
-        #     x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u-drift, dt)
-        else:
-            x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u, dt)
-        rot = np.array([[0],[0],[t]])
-        plt.plot(x, rot)
+        # if(x[2,0]>3.5):
+        #     angv = 400
+        # elif(x[2,0]<1.0):
+        #     angv = 500
+        o1, o2, o3, o4 = angv, angv, angv, angv#cont.solve(thetadot)
+
+        u = np.array([[o1],[o2],[o3],[o4]])
+        #print(angv)
+        x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u, dt)
+
+        plt.plot(x, theta)
         #xhist.append(x)
-        #print(x)
+        print(x)
     
 
     
