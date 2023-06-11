@@ -8,15 +8,19 @@ from controller import controller
 
 
 def main():
-    x = np.array([[0],[0],[3]])
     dt = 0.05
-    xdot = np.array([[0],[0],[0]])
-    theta = np.array([[0],[0],[0]])
-    thetadot = np.array([[0],[0],[0]])
+    x = np.array([[0],[0.008],[3]])
+    xdot = np.array([[-0.158],[0],[0]])
+    theta = np.array([[1.15],[0],[0]])
+    thetadot = np.array([[0],[5.69],[18.89]])
+    # x = np.array([[0],[0],[3]])
+    # xdot = np.array([[0],[0],[0]])
+    # theta = np.array([[0],[0],[0]])
+    # thetadot = np.array([[3],[0],[-15]])
     angv = 430.3815
     u = np.array([[angv],[angv],[angv],[angv]])
     start = 0
-    end = 10
+    end = 20
     time = np.arange(start, end, dt)
     xhist = [x]
     plt = vis(0.5)
@@ -26,15 +30,16 @@ def main():
         #     angv = 400
         # elif(x[2,0]<1.0):
         #     angv = 500
-        o1, o2, o3, o4 = angv, angv, angv, angv#cont.solve(thetadot)
-
+        o1, o2, o3, o4 = 556.961, 393.218, 556.961, 0#cont.solve(thetadot)
+        #o1, o2, o3, o4 = 0, 712.409, 0, 511.409#618.55
         u = np.array([[o1],[o2],[o3],[o4]])
         #print(angv)
         x, xdot, theta, thetadot = motion_model(x, xdot, theta, thetadot, u, dt)
 
         plt.plot(x, theta)
         #xhist.append(x)
-        print(x)
+        #print(x)
+        print(t)
     
 
     
@@ -90,6 +95,7 @@ def motion_model(x, xdot, theta, thetadot, u, dt):
         [qdot],
         [rdot]
     ])
+    print(thetaddot)
     thetadot = thetadot+dt*thetaddot
     theta = theta+thetadot*dt
     xdot = xdot+d_ddot*dt
