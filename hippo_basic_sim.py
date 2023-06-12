@@ -6,6 +6,7 @@
 import numpy as np 
 from quad_vis import vis
 from scipy.spatial.transform import Rotation
+from PD_hippo import PD
 
 M_A = np.diag([-1.11, -2.80, -2.80, -0.00451, -0.0163, -0.0163])
 I_g = np.diag([0.002408, 0.010717, 0.010717])
@@ -26,25 +27,31 @@ def main():
     dt = 0.05
     eta = np.array([[0],[0],[3],[0.0],[0],[0]])
     nu = np.zeros((6,1), dtype = float)
-    #nu[0,0] = 10.1
+    nu[4,0] = 0.1
 
-    esc = 1650
-    ESC = np.array([[esc],[0],[esc],[0]])
+    esc = 0
+    ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
     end = 20
     time = np.arange(start, end, dt)
     plt = vis(0.5)#FIXME: make this so that it can vis horizontal
     
     for t in time:
-        if(t>1):
-            esc = 0
-            ESC = np.array([[esc],[esc],[esc],[esc]])
-
+        # if(t>1):
+        #     esc = 0
+        #     ESC = np.array([[esc],[esc],[esc],[esc]])
+        dest = np.array([[3],[1],[4]])
+        #get errors 
+        e_d, e_theta, e_psi = PD.getErrors(eta, dest)
+        #print(e_theta)
+        udot, qdot, rdot = PD.getAccels(e_d, e_theta, e_psi, nu)
+        # print(e_theta)
+        # print(qdot)
         thrust = computeThrust(ESC)
-        print(thrust)
+        #print(thrust)
         eta, nu = motion_model(eta, nu, thrust, dt)
         plt.plot(eta[:3], eta[-3:])
-        print(eta)
+        print(nu)
 
 
 
