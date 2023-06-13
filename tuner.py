@@ -1,10 +1,7 @@
 #author: Stefan Caldararu
-#dynamics from "Marine Craft Hydrodynamics and Motion Control" by Thor I. Fossen
-#this uses the general model, and doesn't work well... problems with the C matrices
-#sim the dynamics of the hippocampus, given the old BSC066 parameters.
-#Ignoring Coriolis, and assuming values from
+#same as hippo_basic_sim, just set up to tune the high level Stanley controller
 import numpy as np 
-from quad_vis import vis
+
 from scipy.spatial.transform import Rotation
 from PD_hippo import PD
 from hippo_solver import solver
@@ -25,7 +22,7 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 
 
 
-def main():
+def main(a, b, c):
     dt = 0.01
     eta = np.array([[0],[0],[0],[0.0],[0.0],[0.0]])
     nu = np.zeros((6,1), dtype = float)
@@ -38,7 +35,7 @@ def main():
     start = 0
     end = 20
     time = np.arange(start, end, dt)
-    plot = vis(0.5)#FIXME: make this so that it can vis horizontal
+    #plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
     count = 0
     udot, qdot, rdot = 0,0,0
@@ -51,26 +48,26 @@ def main():
         if(count%10 == 0):
             udot = 0.85
             #want a value between -3 and 3 here...
-            a = 0.4
-            b = 0.9
-            c = 0.9
+            # a = 0.04
+            # b = 0.5
+            # c = 0.1
             qdot = a*eta[2,0]-b*eta[4,0]-c*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
             rdot = -eta[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
             ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
 
         #ESC = np.array([[1900],[1900],[1600],[1900]])
         
-        print("Angle diff: ",compAngles(0,eta[4,0]))
-        print("speed is: ", nu[0,0])
-        print("desired qdot is: ", qdot)
-        print("rdot is: ", rdot)
+        # print("Angle diff: ",compAngles(0,eta[4,0]))
+        # print("speed is: ", nu[0,0])
+        # print("desired qdot is: ", qdot)
+        # print("rdot is: ", rdot)
         
         thrust = computeThrust(ESC)
         # print(ESC)
         eta, nu = motion_model(eta, nu, thrust, dt)
         #print("nu is: ",nu)
-        print("eta is: ", eta)
-        print("nu is: ", nu)
+        # print("eta is: ", eta)
+        # print("nu is: ", nu)
         #print("and r is: ", nu[5,0])
         eta[3,0] = fix_angle(eta[3,0])
         eta[4,0] = fix_angle(eta[4,0])
@@ -78,8 +75,8 @@ def main():
         count = count+1
         xhist.append(eta[0,0])
         zhist.append(eta[2,0])
-        if(t>1.4):
-            print(t)
+        # if(t>1.4):
+            # print(t)
             #input("Press Enter to continue...")
     
         
@@ -87,11 +84,12 @@ def main():
 
         #plot.plot(eta[:3], eta[-3:])
         #print(eta)
-    fig = plt.figure(figsize = (7.5, 7.5))
-    plt.plot(xhist, zhist, label = 'pos', color = 'g', linewidth = 0.3)
-    plt.xlabel('Position x', fontsize=20)
-    plt.ylabel('Position z', fontsize=20)
-    plt.show()
+    # fig = plt.figure(figsize = (7.5, 7.5))
+    # plt.plot(xhist, zhist, label = 'pos', color = 'g', linewidth = 0.3)
+    # plt.xlabel('Position x', fontsize=20)
+    # plt.ylabel('Position z', fontsize=20)
+    # plt.show()
+    return np.max(np.abs(zhist))
 
 def fix_angle(theta):
     if(theta>np.pi):
@@ -197,8 +195,8 @@ def motion_model(eta, nu, thrust, dt):
     nu[0,0] = nu[0,0]+accel1[0,0]*dt
     #nu[2,0] = nu[2,0]+accel1[1,0]*dt #no lateral accel...
     nu[4,0] = nu[4,0]+accel1[2,0]*dt
-    print("actual qdot is: ", accel1[2,0])
-    print("actual udot is: ", accel1[0,0])
+    # print("actual qdot is: ", accel1[2,0])
+    # print("actual udot is: ", accel1[0,0])
     
     #Now we are doing lateral dynamics (v,p,r). For us, the linear dynamics of  v should be 0, but this is because the thrust in this dimension will be 0.
 
@@ -260,4 +258,20 @@ def world2bodyRot(theta):
     R = body2worldRot(theta)
     return np.linalg.inv(R)
 if __name__ == '__main__':
-    main()
+    a_s = np.arange(0.1,1,0.1)
+    b_s = np.arange(0.1,1,0.1)
+    c_s = np.arange(0.1,1,0.1)
+    mv = 100
+    ms = np.array([0,0,0])
+    for a in a_s:
+        print("a is: ", a)
+        for b in b_s:
+            print("b is: ", b)
+            for c in c_s:
+                val = main(a,b,c)
+                if(val<mv):
+                    mv = val
+                    ms = np.array([a,b,c])
+    print(ms)
+    # main(0.4, 0.9, 0.9)
+

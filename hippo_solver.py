@@ -107,13 +107,13 @@ class solver(object):
         # self.thrust[0,0] = (m-M_A[0,0])*udot - D_A[0,0]*nu[0,0]
         # self.thrust[4,0] = (I_g[1,0]-M_A[4,4])*qdot-D_A[4,4]*nu[4,0]-(m-M_A[0,0])*nu[0,0]*nu[4,0]
         # self.thrust[5,0] = (I_g[2,0]-M_A[5,5])*rdot - M_A[5,5]*nu[5,0]-(m-M_A[0,0])*nu[0,0]*nu[5,0]
-        print("thrust 0: ",self.thrust[0,0])
-        print("thrust 4: ",self.thrust[4,0])
-        print("thrust 5: ",self.thrust[5,0])
+        # print("thrust 0: ",self.thrust[0,0])
+        # print("thrust 4: ",self.thrust[4,0])
+        # print("thrust 5: ",self.thrust[5,0])
 
         initial_guess = [1900, 1900, 1650, 1900]
         solution = fsolve(self.equations, initial_guess)
-        print("SOLUTION: ", solution)
+        # print("SOLUTION: ", solution)
 
 
         
