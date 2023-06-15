@@ -22,7 +22,10 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 
 
 
-def main(a, b, c):
+def main(inp):
+    a = inp[0]
+    b = inp[1]
+    c = inp[2]
     dt = 0.01
     eta = np.array([[0],[0],[0],[1],[0.0],[0.0],[0.0]])
     nu = np.zeros((6,1), dtype = float)
