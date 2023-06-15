@@ -28,7 +28,7 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 
 
 def main():
-    dt = 0.01
+    dt = 0.001
     #orientation represented as quaternion
     eta = np.array([[0],[0],[0],[1],[0.0],[0.0],[0.0]])
     #angular velocities no quaternions...
@@ -40,7 +40,7 @@ def main():
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 20
+    end = 10
     time = np.arange(start, end, dt)
     #plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
@@ -53,21 +53,19 @@ def main():
     for t in time:
         # if(t<1):
         #     udot, qdot, rdot = 0.3, 0, 0.1
-        if(count%10 == 0):
+        if(count%100 == 0):
             udot = -(nu[0,0]-0.5)
             #want a value between -3 and 3 here...
             #a1, b1, c1,a2, b2, c2 = 25, 97.33746412223229, 17,16, 124.4158228425137, 10 # oscilates a little, but good solution!!
             #a, b, c = 10, 73.04284441234029, 7# no oscilation but slow...
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            orientaiton = q2e(orientation)
+            #orientaiton = q2e(orientation)
             a1, b1, c1,a2, b2, c2 = 8, 13.381974005947988, 12, 8, 13.381974005947988, 12
-            # qdot = a1*eta[2,0]-b1*orientation[1]-c1*nu[4,0]
-            # rdot = a1*eta[1,0]-b1*orientation[2]-c1*nu[5,0]
-            qdot = a1*eta[2,0]-b1*eta[4,0]-c1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
-            rdot = a1*eta[1,0]-b1*eta[5,0]-c1*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
+            # qdot = a1*eta[2,0]-b1*eta[4,0]-c1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
+            # rdot = a1*eta[1,0]-b1*eta[5,0]-c1*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
             ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
 
-        #ESC = np.array([[1600],[1900],[1600],[1900]])
+        ESC = np.array([[1850],[1850],[1900],[1900]])
         
         # print("Angle diff: ",compAngles(0,eta[4,0]))
         # print("speed is: ", nu[0,0])
@@ -247,12 +245,19 @@ def motion_model(eta, nu, thrust, dt):
     new_orientation = np.zeros(4)
 
     if(mag_ang_vel!=0):
-        qdelta = np.array([dt*mag_ang_vel, ang_vel[0]/mag_ang_vel,ang_vel[1]/mag_ang_vel,ang_vel[2]/mag_ang_vel])
-        new_orientation[0] = orientation[0] * qdelta[0] - np.dot(orientation[1:], qdelta[1:])
-        new_orientation[1:] = orientation[0] * qdelta[1:] + qdelta[0] * orientation[1:] + np.cross(orientation[1:], qdelta[1:])
+        #angular_velocity_global = np.dot(R, ang_vel)
+        qdelta = Rotation.from_rotvec(ang_vel * dt)#.as_matrix()
+        #qdelta = np.array([dt*mag_ang_vel, ang_vel[0]/mag_ang_vel,ang_vel[1]/mag_ang_vel,ang_vel[2]/mag_ang_vel])
+        #rot = Rotation.from_quat(qdelta)
+        #print(rot.as_quat())
+        new_R = qdelta*R
+
+
+        new_orientation = new_R.as_quat()
         magnitude = np.linalg.norm(new_orientation)
 
         # Renormalize the quaternion
+        #print(new_orientation)
         new_orientation = new_orientation / magnitude
 
     eta[0,0] = eta[0,0]+dt*world_linear_vel[0]
