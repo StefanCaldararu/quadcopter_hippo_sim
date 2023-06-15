@@ -61,8 +61,8 @@ def main():
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
             #orientaiton = q2e(orientation)
             a1, b1, c1,a2, b2, c2 = 8, 13.381974005947988, 12, 8, 13.381974005947988, 12
-            # qdot = a1*eta[2,0]-b1*eta[4,0]-c1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
-            # rdot = a1*eta[1,0]-b1*eta[5,0]-c1*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
+            qdot = a1*eta[2,0]-b1*eta[4,0]-c1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
+            rdot = a1*eta[1,0]-b1*eta[5,0]-c1*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
             ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
 
         ESC = np.array([[1850],[1850],[1900],[1900]])

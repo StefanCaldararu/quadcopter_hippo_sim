@@ -5,7 +5,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 from PD_hippo import PD
 from hippo_solver import solver
-import matplotlib.pyplot as plt
+from skopt import gp_minimize
 
 M_A = np.diag([-1.11, -2.80, -2.80, -0.00451, -0.0163, -0.0163])
 I_g = np.diag([0.002408, 0.010717, 0.010717])
@@ -24,7 +24,7 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 
 def main(a, b, c):
     dt = 0.01
-    eta = np.array([[0],[0],[0],[0.0],[0.0],[0.0]])
+    eta = np.array([[0],[0],[0],[1],[0.0],[0.0],[0.0]])
     nu = np.zeros((6,1), dtype = float)
     #nu[0,0] = 1.0
     #nu[4,0] = 1
@@ -33,63 +33,54 @@ def main(a, b, c):
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 20
+    end = 5
     time = np.arange(start, end, dt)
     #plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
     count = 0
     udot, qdot, rdot = 0,0,0
-    xhist = []
-    zhist = []
+    dhist = []
 
     for t in time:
         # if(t<1):
         #     udot, qdot, rdot = 0.3, 0, 0.1
         if(count%10 == 0):
-            udot = 0.85
-            #want a value between -3 and 3 here...
-            # a = 0.04
-            # b = 0.5
-            # c = 0.1
-            qdot = a*eta[2,0]-b*eta[4,0]-c*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
-            rdot = -eta[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
+            udot = -(nu[0,0]-0.5)
+
+            orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
+            orientation = q2e(orientation)
+            qdot = a*eta[2,0]-b*orientation[1,0]-c*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
+            rdot = a*eta[1,0]-b*orientation[2,0]-c*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
             ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
 
-        #ESC = np.array([[1900],[1900],[1600],[1900]])
-        
-        # print("Angle diff: ",compAngles(0,eta[4,0]))
-        # print("speed is: ", nu[0,0])
-        # print("desired qdot is: ", qdot)
-        # print("rdot is: ", rdot)
-        
         thrust = computeThrust(ESC)
         # print(ESC)
         eta, nu = motion_model(eta, nu, thrust, dt)
-        #print("nu is: ",nu)
-        # print("eta is: ", eta)
-        # print("nu is: ", nu)
-        #print("and r is: ", nu[5,0])
+
         eta[3,0] = fix_angle(eta[3,0])
         eta[4,0] = fix_angle(eta[4,0])
         eta[5,0] = fix_angle(eta[5,0])
         count = count+1
-        xhist.append(eta[0,0])
-        zhist.append(eta[2,0])
-        # if(t>1.4):
-            # print(t)
-            #input("Press Enter to continue...")
-    
-        
+        dhist.append(np.sqrt(eta[1,0]**2+eta[2,0]**2))
+    return np.max(np.abs(dhist))
 
+def q2e(quaternion):
+    # Normalize the quaternion to ensure unit magnitude
+    quaternion /= np.linalg.norm(quaternion)
 
-        #plot.plot(eta[:3], eta[-3:])
-        #print(eta)
-    # fig = plt.figure(figsize = (7.5, 7.5))
-    # plt.plot(xhist, zhist, label = 'pos', color = 'g', linewidth = 0.3)
-    # plt.xlabel('Position x', fontsize=20)
-    # plt.ylabel('Position z', fontsize=20)
-    # plt.show()
-    return np.max(np.abs(zhist))
+    # Set the roll angle to 0
+    euler_angles = [0, 0, 0]
+
+    # Compute the yaw and pitch angles
+    quaternion_rotation = Rotation.from_quat(quaternion)
+    yaw_pitch_rotation = quaternion_rotation.inv() * Rotation.from_euler('xyz', euler_angles, degrees=True)
+    yaw_pitch_angles = yaw_pitch_rotation.as_euler('xyz', degrees=True)
+
+    # Update the yaw and pitch angles in the Euler angles
+    euler_angles[1] = yaw_pitch_angles[1]  # pitch
+    euler_angles[2] = yaw_pitch_angles[0]  # yaw
+
+    return euler_angles
 
 def fix_angle(theta):
     if(theta>np.pi):
@@ -207,7 +198,7 @@ def motion_model(eta, nu, thrust, dt):
     ])
     D = np.diag([-D_A[1,1], -D_A[3,3], -D_A[5,5]])
     C = np.array([
-        [0,0,(m*M_A[0,0])*nu[0,0]],
+        [0,0,(m-M_A[0,0])*nu[0,0]],
         [0,0,0],
         [(M_A[0,0]-M_A[1,1])*nu[0,0], 0, 0]#because x_g = 0, 3,3 = 0
     ])
@@ -221,13 +212,54 @@ def motion_model(eta, nu, thrust, dt):
     nu[5,0] = nu[5,0]+accel2[2,0]*dt
 
     #nu is now propogated. 
-    body2world = np.zeros((6,6), dtype=float)
-    theta = np.array([[eta[3,0]],[eta[4,0]],[eta[5,0]]])
+    #want to get linear velocities in world frame (using rotaiton), and apply rotation to our quaternions...
+    orientation = np.array([eta[3,0],eta[4,0], eta[5,0], eta[6,0]])
+    if(orientation[0] == 0):
+        orientation = np.array([1,0,0,0])
+    R = Rotation.from_quat(orientation)
+    R = R.inv()
+    linear_vel = np.array([nu[0,0], nu[1,0], nu[2,0]])
+    world_linear_vel = R.apply(linear_vel)
+    ang_vel = np.array([nu[3,0], nu[4,0], nu[5,0]])
+    mag_ang_vel = np.sqrt(ang_vel[0]**2+ang_vel[1]**2+ang_vel[2]**2)
+    new_orientation = np.zeros(4)
 
-    body2world[:3, :3] = body2worldRot(theta)
-    body2world[3:,3:] = body2worldTrans(theta)
-    globalChange = body2world@nu
-    eta = eta+dt*globalChange#FIXME: do we need to include nudot here too?
+    if(mag_ang_vel!=0):
+        #angular_velocity_global = np.dot(R, ang_vel)
+        qdelta = Rotation.from_rotvec(ang_vel * dt)#.as_matrix()
+        #qdelta = np.array([dt*mag_ang_vel, ang_vel[0]/mag_ang_vel,ang_vel[1]/mag_ang_vel,ang_vel[2]/mag_ang_vel])
+        #rot = Rotation.from_quat(qdelta)
+        #print(rot.as_quat())
+        new_R = qdelta*R
+
+
+        new_orientation = new_R.as_quat()
+        magnitude = np.linalg.norm(new_orientation)
+
+        # Renormalize the quaternion
+        #print(new_orientation)
+        new_orientation = new_orientation / magnitude
+
+    eta[0,0] = eta[0,0]+dt*world_linear_vel[0]
+    eta[1,0] = eta[1,0]+dt*world_linear_vel[1]
+    eta[2,0] = eta[2,0]+dt*world_linear_vel[2]
+    eta[3,0] = new_orientation[0]
+    eta[4,0] = new_orientation[1]
+    eta[5,0] = new_orientation[2]
+    eta[6,0] = new_orientation[3]
+    # body2world = np.zeros((6,6), dtype=float)
+    # theta = np.array([[eta[3,0]],[eta[4,0]],[eta[5,0]]])
+
+    # body2world[:3, :3] = body2worldRot(theta)
+    # body2world[-3:,-3:] = body2worldTrans(theta)
+    # globalChange = body2world@nu#compGlobalChange(theta, nu)
+    # # globalChange = local_to_global_velocity(eta, nu)
+    # print("eta",eta)
+    # print(nu)
+    # print(globalChange)
+    # # if(globalChange[4,0]!=globalChange[5,0]):
+    #     # input("ERROR!!")
+    # eta = eta+dt*globalChange#FIXME: do we need to include nudot here too?
     return eta, nu
 #Rotation and transformation matrices...
 def body2worldTrans(Theta):
@@ -258,20 +290,18 @@ def world2bodyRot(theta):
     R = body2worldRot(theta)
     return np.linalg.inv(R)
 if __name__ == '__main__':
-    a_s = np.arange(0.1,1,0.1)
-    b_s = np.arange(0.1,1,0.1)
-    c_s = np.arange(0.1,1,0.1)
-    mv = 100
-    ms = np.array([0,0,0])
-    for a in a_s:
-        print("a is: ", a)
-        for b in b_s:
-            print("b is: ", b)
-            for c in c_s:
-                val = main(a,b,c)
-                if(val<mv):
-                    mv = val
-                    ms = np.array([a,b,c])
-    print(ms)
-    # main(0.4, 0.9, 0.9)
+    bounds = [(0, 100), (0, 100), (0, 100)]
+
+    # Perform Bayesian optimization
+    result = gp_minimize(
+        func=main,
+        dimensions=bounds,
+        acq_func='EI',  # Expected Improvement
+    )
+
+    # Retrieve the best parameters and the minimum value
+    best_params = result.x
+    min_value = result.fun
+    print(best_params)
+        # main(0.4, 0.9, 0.9)
 
