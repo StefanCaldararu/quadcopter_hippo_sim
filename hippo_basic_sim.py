@@ -30,7 +30,7 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 def main():
     dt = 0.001
     #orientation represented as quaternion
-    eta = np.array([[0],[1],[1],[1],[0.0],[0.0],[0.0]])
+    eta = np.array([[0],[0],[0],[1],[0.0],[0.0],[0.0]])
     #angular velocities no quaternions...
     nu = np.zeros((6,1), dtype = float)
     #nu[0,0] = 1.0
@@ -55,12 +55,15 @@ def main():
         #     udot, qdot, rdot = 0.3, 0, 0.1
         if(count%100 == 0):
             udot = -(nu[0,0]-0.5)
-            a, b, c = 86, 0, 12
+            a1, b1, c1, d1, e1, a2, b2, c2, d2, e2 = 50, 26, 25, 27, -10, -46, -41, 49, 18, -19
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            orientation = q2e(orientation)
-            qdot = a*eta[2,0]-b*orientation[1]-c*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
-            rdot = a*eta[1,0]-b*orientation[2]-c*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
+            #orientation = q2e(orientation)
+            qdot = a1*eta[2,0]+b1*orientation[1]+c1*orientation[2]+d1*orientation[3]+e1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
+            rdot = a2*eta[1,0]+b2*orientation[1]+c2*orientation[2]+d2*orientation[3]+e2*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
             ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
+            #ESC[3,0] = 0
+            R = Rotation.from_quat(orientation).as_matrix()
+            #plot.plot(eta[:3], R)
 
         #ESC = np.array([[1850],[1850],[1900],[1900]])
         
@@ -83,14 +86,11 @@ def main():
         xhist.append(eta[0,0])
         yhist.append(eta[1,0])
         zhist.append(eta[2,0])
-        if(t>1.4):
-            print(t)
+        
+        print(t)
             #input("Press Enter to continue...")
     
         
-
-
-        #plot.plot(eta[:3], eta[-3:])
         #print(eta)
     fig = plt.figure(figsize = (7.5, 7.5))
     plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)

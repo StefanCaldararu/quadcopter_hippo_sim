@@ -14,13 +14,8 @@ class vis(object):
         
     #plot vehicle with locaiton x [x, y, z]
     #and orientation theta = [phi (roll), theta(pitch), psi (yaw)]
-    def plot(self,x, theta):
-        #create rotation matrix R
-        R = np.array([  
-        [np.cos(theta[0,0])*np.cos(theta[2,0])-np.cos(theta[1,0])*np.sin(theta[0,0])*np.sin(theta[2,0]), -np.cos(theta[2,0])*np.sin(theta[1,0])-np.cos(theta[0,0])*np.cos(theta[1,0])*np.sin(theta[2,0]), np.sin(theta[1,0])*np.sin(theta[2,0])],
-        [np.cos(theta[1,0])*np.cos(theta[2,0])*np.sin(theta[0,0])+np.cos(theta[0,0])*np.sin(theta[2,0]), np.cos(theta[0,0])*np.cos(theta[2,0])*np.cos(theta[1,0])-np.sin(theta[0,0])*np.sin(theta[2,0]), -np.cos(theta[2,0])*np.sin(theta[1,0])],
-        [np.sin(theta[0,0])*np.sin(theta[1,0]), np.cos(theta[0,0])*np.sin(theta[1,0]), np.cos(theta[1,0])]
-        ])
+    def plot(self,x, R):
+        
         #create our points
         p1 = np.array([[self.l], [0], [0]])#location of propeller 1
         p2 = np.array([[0], [self.l], [0]])
