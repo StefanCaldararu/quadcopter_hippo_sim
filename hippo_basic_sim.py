@@ -29,16 +29,18 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 
 def main():
     dt = 0.01
-    eta = np.array([[0],[1],[1],[0.0],[0.0],[0.0]])
+    #orientation represented as quaternion
+    eta = np.array([[0],[0],[0],[1],[0.0],[0.0],[0.0]])
+    #angular velocities no quaternions...
     nu = np.zeros((6,1), dtype = float)
     #nu[0,0] = 1.0
-    nu[4,0] = 0.0
+    #nu[4,0] = 0.0
     #nu[5,0] = 1
 
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 5
+    end = 20
     time = np.arange(start, end, dt)
     #plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
@@ -56,12 +58,16 @@ def main():
             #want a value between -3 and 3 here...
             #a1, b1, c1,a2, b2, c2 = 25, 97.33746412223229, 17,16, 124.4158228425137, 10 # oscilates a little, but good solution!!
             #a, b, c = 10, 73.04284441234029, 7# no oscilation but slow...
+            orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
+            orientaiton = q2e(orientation)
             a1, b1, c1,a2, b2, c2 = 8, 13.381974005947988, 12, 8, 13.381974005947988, 12
+            # qdot = a1*eta[2,0]-b1*orientation[1]-c1*nu[4,0]
+            # rdot = a1*eta[1,0]-b1*orientation[2]-c1*nu[5,0]
             qdot = a1*eta[2,0]-b1*eta[4,0]-c1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
             rdot = a1*eta[1,0]-b1*eta[5,0]-c1*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
             ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
 
-        #ESC = np.array([[1600],[1900],[1900],[1600]])
+        #ESC = np.array([[1600],[1900],[1600],[1900]])
         
         # print("Angle diff: ",compAngles(0,eta[4,0]))
         # print("speed is: ", nu[0,0])
@@ -228,19 +234,47 @@ def motion_model(eta, nu, thrust, dt):
     nu[5,0] = nu[5,0]+accel2[2,0]*dt
 
     #nu is now propogated. 
-    body2world = np.zeros((6,6), dtype=float)
-    theta = np.array([[eta[3,0]],[eta[4,0]],[eta[5,0]]])
+    #want to get linear velocities in world frame (using rotaiton), and apply rotation to our quaternions...
+    orientation = np.array([eta[3,0],eta[4,0], eta[5,0], eta[6,0]])
+    if(orientation[0] == 0):
+        orientation = np.array([1,0,0,0])
+    R = Rotation.from_quat(orientation)
+    R = R.inv()
+    linear_vel = np.array([nu[0,0], nu[1,0], nu[2,0]])
+    world_linear_vel = R.apply(linear_vel)
+    ang_vel = np.array([nu[3,0], nu[4,0], nu[5,0]])
+    mag_ang_vel = np.sqrt(ang_vel[0]**2+ang_vel[1]**2+ang_vel[2]**2)
+    new_orientation = np.zeros(4)
 
-    body2world[:3, :3] = body2worldRot(theta)
-    body2world[-3:,-3:] = body2worldTrans(theta)
-    globalChange = body2world@nu#compGlobalChange(theta, nu)
-    # globalChange = local_to_global_velocity(eta, nu)
-    print("eta",eta)
-    print(nu)
-    print(globalChange)
-    # if(globalChange[4,0]!=globalChange[5,0]):
-        # input("ERROR!!")
-    eta = eta+dt*globalChange#FIXME: do we need to include nudot here too?
+    if(mag_ang_vel!=0):
+        qdelta = np.array([dt*mag_ang_vel, ang_vel[0]/mag_ang_vel,ang_vel[1]/mag_ang_vel,ang_vel[2]/mag_ang_vel])
+        new_orientation[0] = orientation[0] * qdelta[0] - np.dot(orientation[1:], qdelta[1:])
+        new_orientation[1:] = orientation[0] * qdelta[1:] + qdelta[0] * orientation[1:] + np.cross(orientation[1:], qdelta[1:])
+        magnitude = np.linalg.norm(new_orientation)
+
+        # Renormalize the quaternion
+        new_orientation = new_orientation / magnitude
+
+    eta[0,0] = eta[0,0]+dt*world_linear_vel[0]
+    eta[1,0] = eta[1,0]+dt*world_linear_vel[1]
+    eta[2,0] = eta[2,0]+dt*world_linear_vel[2]
+    eta[3,0] = new_orientation[0]
+    eta[4,0] = new_orientation[1]
+    eta[5,0] = new_orientation[2]
+    eta[6,0] = new_orientation[3]
+    # body2world = np.zeros((6,6), dtype=float)
+    # theta = np.array([[eta[3,0]],[eta[4,0]],[eta[5,0]]])
+
+    # body2world[:3, :3] = body2worldRot(theta)
+    # body2world[-3:,-3:] = body2worldTrans(theta)
+    # globalChange = body2world@nu#compGlobalChange(theta, nu)
+    # # globalChange = local_to_global_velocity(eta, nu)
+    # print("eta",eta)
+    # print(nu)
+    # print(globalChange)
+    # # if(globalChange[4,0]!=globalChange[5,0]):
+    #     # input("ERROR!!")
+    # eta = eta+dt*globalChange#FIXME: do we need to include nudot here too?
     return eta, nu
 #Rotation and transformation matrices...
 
