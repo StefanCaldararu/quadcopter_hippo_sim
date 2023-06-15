@@ -23,9 +23,17 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 
 
 def main(inp):
-    a = inp[0]
-    b = inp[1]
-    c = inp[2]
+    a1 = inp[0]
+    b1 = inp[1]
+    c1 = inp[2]
+    d1 = inp[3]
+    e1 = inp[4]
+    a2 = inp[5]
+    b2 = inp[6]
+    c2 = inp[7]
+    d2 = inp[8]
+    e2 = inp[9]
+
     dt = 0.01
     eta = np.array([[0],[0],[0],[1],[0.0],[0.0],[0.0]])
     nu = np.zeros((6,1), dtype = float)
@@ -51,9 +59,9 @@ def main(inp):
             udot = -(nu[0,0]-0.5)
 
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            orientation = q2e(orientation)
-            qdot = a*eta[2,0]-b*orientation[1]-c*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
-            rdot = a*eta[1,0]-b*orientation[2]-c*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
+            #orientation = q2e(orientation)
+            qdot = a1*eta[2,0]+b1*orientation[1]+c1*orientation[2]+d1*orientation[3]+e1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
+            rdot = a2*eta[1,0]+b2*orientation[1]+c2*orientation[2]+d2*orientation[3]+e2*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
             ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
 
         thrust = computeThrust(ESC)
@@ -295,7 +303,7 @@ def world2bodyRot(theta):
     R = body2worldRot(theta)
     return np.linalg.inv(R)
 if __name__ == '__main__':
-    bounds = [(0, 100), (0, 100), (0, 100)]
+    bounds = [(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50)]
 
     # Perform Bayesian optimization
     result = gp_minimize(
