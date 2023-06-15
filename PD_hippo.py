@@ -1,3 +1,5 @@
+#author: Stefan Caldararu
+#a PD controller for the hippo, giving angular accelerations and forward acceleration from the error states.
 import numpy as np
 
 class PD():
@@ -22,30 +24,35 @@ class PD():
 
 
     def getAccels(e_d, e_theta, e_psi, nu):
-        c1 = 0.1
-        c2 = 0.1
-        c3 = 0.03
+        c1 = 0.2
+        b1 = -0.5
+        c2 = 0.03
+        b2 = -0.2
         if(nu[0,0] == 0):
             udot = 1
         else:
-            udot = np.clip(e_d*c3/nu[0,0],-1, 1)
-        #if(nu[4,0])
+            udot = np.clip(e_d*c2+b2*nu[0,0],-1, 1)
+
+
+
         if(nu[4,0] == 0 and (e_theta > 0)):
-            qdot = 1
-        elif(nu[4,0] == 0 and (e_theta <0)):
             qdot = -1
+        elif(nu[4,0] == 0 and (e_theta <0)):
+            qdot = 1
         elif(e_theta ==0):
             qdot = 0
         else:
-            qdot = e_theta*c1/(nu[4,0]*e_d)
+            #DESIRED qdot
+            qdot = e_theta*c1+b1*nu[4,0]
         
         if(nu[5,0] == 0 and (e_psi > 0)):
-            rdot = 1
-        elif(nu[5,0] == 0 and (e_psi <0)):
             rdot = -1
+        elif(nu[5,0] == 0 and (e_psi <0)):
+            rdot = 1
         elif(e_psi ==0):
             rdot = 0
         else:
-             rdot = e_psi*c2/(nu[5,0]*e_d)
+            #DESIRED rdot
+             rdot = e_psi*c1+b1*nu[5,0]
         #udot = e_d*c3/nu[0,0]
         return udot, qdot, rdot

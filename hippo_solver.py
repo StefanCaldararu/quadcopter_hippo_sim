@@ -21,7 +21,7 @@ class solver(object):
         f2 = np.array([p3*(e2**3)+p2*(e2**2)+p1*(e2)+p0,0,0])
         f3 = np.array([p3*(e3**3)+p2*(e3**2)+p1*(e3)+p0,0,0])
         f4 = np.array([p3*(e4**3)+p2*(e4**2)+p1*(e4)+p0,0,0])
-
+        #f4 = np.array([0,0,0])
         eq1 = f1[0]+f2[0]+f3[0]+f4[0]-self.thrust[0,0]
         #eq1 = 0
         #Dont care about roll... but it should be 0 no matter what
@@ -65,7 +65,7 @@ class solver(object):
         ])
         D = np.diag([-D_A[1,1], -D_A[3,3], -D_A[5,5]])
         C = np.array([
-            [0,0,(m*M_A[0,0])*self.nu[0,0]],
+            [0,0,(m-M_A[0,0])*self.nu[0,0]],
             [0,0,0],
             [(M_A[0,0]-M_A[1,1])*self.nu[0,0], 0, 0]#because x_g = 0, 3,3 = 0
         ])
