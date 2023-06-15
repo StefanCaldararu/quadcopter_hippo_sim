@@ -52,8 +52,8 @@ def main(inp):
 
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
             orientation = q2e(orientation)
-            qdot = a*eta[2,0]-b*orientation[1,0]-c*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
-            rdot = a*eta[1,0]-b*orientation[2,0]-c*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
+            qdot = a*eta[2,0]-b*orientation[1]-c*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
+            rdot = a*eta[1,0]-b*orientation[2]-c*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
             ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
 
         thrust = computeThrust(ESC)
@@ -68,6 +68,8 @@ def main(inp):
     return np.max(np.abs(dhist))
 
 def q2e(quaternion):
+    if(quaternion[0] == 0):
+        return [0,0,0]
     # Normalize the quaternion to ensure unit magnitude
     quaternion /= np.linalg.norm(quaternion)
 
