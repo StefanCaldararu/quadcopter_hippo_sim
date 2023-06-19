@@ -40,15 +40,20 @@ def main():
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 20
+    end = 100
     time = np.arange(start, end, dt)
-    #plot = vis(0.5)#FIXME: make this so that it can vis horizontal
+    visual = False
+    mot = 1
+    if(visual):
+        plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
     count = 0
     udot, qdot, rdot = 0,0,0
     xhist = []
     yhist = []
     zhist = []
+
+    # 0.25 for motor is max moment.
 
     for t in time:
         # if(t<1):
@@ -61,11 +66,16 @@ def main():
             qdot = a1*eta[2,0]+b1*orientation[1]+c1*orientation[2]+d1*orientation[3]+e1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
             rdot = a2*eta[1,0]+b2*orientation[1]+c2*orientation[2]+d2*orientation[3]+e2*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
             ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
-            #ESC[3,0] = 0
+            if(mot==1):
+                ESC[3,0] = 0
+            if(mot == 2):
+                ESC[3,0] = 0
+                ESC[1,0] = 0
             R = Rotation.from_quat(orientation).as_matrix()
-            #plot.plot(eta[:3], R)
+            if(visual):
+                plot.plot(eta[:3], R)
 
-        #ESC = np.array([[1850],[1850],[1900],[1900]])
+        #ESC = np.array([[0],[0],[1900],[0]])
         
         # print("Angle diff: ",compAngles(0,eta[4,0]))
         # print("speed is: ", nu[0,0])
@@ -161,17 +171,24 @@ def computeThrust(ESC):
         [0]
     ])
     locs = np.array([m1p, m2p, m3p, m4p])
+
+    #the constant for the motor created by each motor... multiply by 0-1 value of esc, between 1500-2000
+    c_1 = 0.01
     #now using lennarts model, assuming 0 moment produced by each motor.
     thrust = np.zeros((6,1), dtype = float)
     for i in range(0,4):
+        normalized = ESC[i,0]-1500
+        if(normalized<0):
+            normalized = 0
+        m3 = (normalized/500)*c_1*((-1)**i)
+        #print("m3 at ", i, ": ", m3)
         fi = f[i]
         thrust[0,0] = thrust[0,0]+fi[0,0]
         moment = np.cross(locs[i].flatten(), fi.flatten())
         moment = np.reshape(moment,(3,1))
-        thrust[3,0] = thrust[3,0]+moment[0,0]
+        thrust[3,0] = thrust[3,0]+moment[0,0]+m3
         thrust[4,0] = thrust[4,0]+moment[1,0]
         thrust[5,0] = thrust[5,0]+moment[2,0]
-        #TODO: here assuming moment about motors is 0...
         
     return thrust
 def motion_model(eta, nu, thrust, dt):
@@ -225,6 +242,7 @@ def motion_model(eta, nu, thrust, dt):
     RHS2 = t2-D@s2-C@s2
     accel2 = np.linalg.inv(M_T)@RHS2
     #nu[1,0] = nu[1,0]+accel2[0,0]*dt #no lateral accel...
+    #print(accel2[1,0])
     nu[3,0] = nu[3,0]+accel2[1,0]*dt
     nu[5,0] = nu[5,0]+accel2[2,0]*dt
 
@@ -362,7 +380,6 @@ def compGlobalChange(Theta, nu):
     J = np.zeros([7,6])
     J[:3, :3] = R
     J[3:, 3:] = T
-    print(J)
     comp = J@nu
 
     # phi, theta, psi = q2e(comp[3,0], comp[4,0],comp[5,0],comp[6,0])

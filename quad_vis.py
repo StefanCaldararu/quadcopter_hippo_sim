@@ -44,9 +44,9 @@ class vis(object):
         arm2 = [[p2[0,0],p4[0,0]], [p2[1,0],p4[1,0]], [p2[2,0],p4[2,0]]]
         u = [[c[0,0],up[0,0]],[c[1,0],up[1,0]],[c[2,0],up[2,0]]]
         self.ax.cla()
-        self.ax.set_xlim(-5, 5)
-        self.ax.set_ylim(-5, 5)
-        self.ax.set_zlim(0, 5)
+        self.ax.set_xlim(-20, 20)
+        self.ax.set_ylim(-20, 20)
+        self.ax.set_zlim(-5, 5)
         self.ax.set_xlabel('X-axis')
         self.ax.set_ylabel('Y-axis')
         self.ax.set_zlabel('Z-axis')

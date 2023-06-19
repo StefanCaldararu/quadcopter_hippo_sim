@@ -6,6 +6,7 @@ from scipy.optimize import fsolve
 class solver(object):
     def __init__(self):
         self.thrust = np.zeros((6,1), dtype = float)
+        self.MODE = 1 #1 if 1 engine dies
 
     def equations(self, esc):
         e1, e2, e3, e4 = esc[0], esc[1], esc[2], esc[3]
@@ -21,10 +22,14 @@ class solver(object):
         f2 = np.array([p3*(e2**3)+p2*(e2**2)+p1*(e2)+p0,0,0])
         f3 = np.array([p3*(e3**3)+p2*(e3**2)+p1*(e3)+p0,0,0])
         f4 = np.array([p3*(e4**3)+p2*(e4**2)+p1*(e4)+p0,0,0])
-        #f4 = np.array([0,0,0])
+        if(self.MODE == 1):
+            f4 = np.array([0,0,0])
+        if(self.MODE == 2):
+            f4 = np.array([0,0,0])
+            f2 = np.array([0,0,0])
         eq1 = f1[0]+f2[0]+f3[0]+f4[0]-self.thrust[0,0]
         #eq1 = 0
-        #Dont care about roll... but it should be 0 no matter what
+        #Dont care about roll... so set this equation equal to 0. moments don't matter.
         eq2 = 0#np.cross(m1p,f1)[0]+np.cross(m2p,f2)[0]+np.cross(m3p,f3)[0]+np.cross(m4p,f4)[0]
         eq3 = np.cross(m1p,f1)[1]+np.cross(m2p,f2)[1]+np.cross(m3p,f3)[1]+np.cross(m4p,f4)[1]-self.thrust[4,0]
         eq4 = np.cross(m1p,f1)[2]+np.cross(m2p,f2)[2]+np.cross(m3p,f3)[2]+np.cross(m4p,f4)[2]-self.thrust[5,0]
