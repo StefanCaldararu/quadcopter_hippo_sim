@@ -83,14 +83,6 @@ class solver(object):
 
         return [accel1[0,0]-self.udot, accel1[2,0]-self.qdot, accel2[2,0]-self.rdot]
         
-
-
-
-
-
-
-        
-
     def solve(self, udot, qdot, rdot, nu):
         self.nu = nu
         m = 1.43
