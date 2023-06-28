@@ -4,7 +4,7 @@
 
 from quad_vis import vis
 import numpy as np
-from controller import controller
+from old_quad_stuff.controller import controller
 
 
 def main():

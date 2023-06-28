@@ -1,6 +1,6 @@
 //The input for our solver is our desired thrusts, t_0 (linear x), t_4 (ang. pitch?), and t_5 (ang. yaw)
 #include "solver.h"
-
+#include <Eigen/Dense>
 //TODO: move this into the constructor.
 
 double solver::f2esc(double f){

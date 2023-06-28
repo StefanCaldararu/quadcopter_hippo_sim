@@ -8,7 +8,8 @@ import numpy as np
 from quad_vis import vis
 from scipy.spatial.transform import Rotation
 from PD_hippo import PD
-from hippo_solver import solver
+from hippo_solver_linear import solver
+from hippo_solver import solver as slvr
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
@@ -30,7 +31,7 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 def main():
     dt = 0.001
     #orientation represented as quaternion
-    eta = np.array([[0],[0],[0],[1],[0.0],[0.0],[0.0]])
+    eta = np.array([[0],[0.3],[0],[1],[0.0],[0.0],[0.0]])
     #angular velocities no quaternions...
     nu = np.zeros((6,1), dtype = float)
     #nu[0,0] = 1.0
@@ -40,13 +41,14 @@ def main():
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 100
+    end = 20
     time = np.arange(start, end, dt)
     visual = False
     mot = 1
     if(visual):
         plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
+    sol_good = slvr()
     count = 0
     udot, qdot, rdot = 0,0,0
     xhist = []
@@ -65,7 +67,13 @@ def main():
             #orientation = q2e(orientation)
             qdot = a1*eta[2,0]+b1*orientation[1]+c1*orientation[2]+d1*orientation[3]+e1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
             rdot = a2*eta[1,0]+b2*orientation[1]+c2*orientation[2]+d2*orientation[3]+e2*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
-            ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
+            #ESC = np.clip(sol_good.solve(udot, qdot, rdot, nu), 1500, 2000)
+            print("Accels ", udot, " ", qdot, " ", rdot)
+            sol.compute_thrusts(udot, qdot, rdot, nu[0,0], nu[4,0], nu[5,0])
+            ESC = sol.getESC()
+            print("BAD ", ESC)
+            # print("LOC: ", eta)
+            input("Press Enter to continue...")
             if(mot==1):
                 ESC[3,0] = 0
             if(mot == 2):
@@ -77,18 +85,10 @@ def main():
 
         #ESC = np.array([[0],[0],[1900],[0]])
         
-        # print("Angle diff: ",compAngles(0,eta[4,0]))
-        # print("speed is: ", nu[0,0])
-        # print("desired qdot is: ", qdot)
-        # print("rdot is: ", rdot)
         
         thrust = computeThrust(ESC)
         # print(ESC)
         eta, nu = motion_model(eta, nu, thrust, dt)
-        #print("nu is: ",nu)
-        # print("eta is: ", eta)
-        # print("nu is: ", nu)
-        #print("and r is: ", nu[5,0])
         eta[3,0] = fix_angle(eta[3,0])
         eta[4,0] = fix_angle(eta[4,0])
         eta[5,0] = fix_angle(eta[5,0])
@@ -98,10 +98,7 @@ def main():
         zhist.append(eta[2,0])
         
         print(t)
-            #input("Press Enter to continue...")
-    
-        
-        #print(eta)
+
     fig = plt.figure(figsize = (7.5, 7.5))
     plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)
     plt.plot(xhist, zhist, label = 'XZ', color = 'b', linewidth = 0.3)
@@ -181,7 +178,6 @@ def computeThrust(ESC):
         if(normalized<0):
             normalized = 0
         m3 = (normalized/500)*c_1*((-1)**i)
-        #print("m3 at ", i, ": ", m3)
         fi = f[i]
         thrust[0,0] = thrust[0,0]+fi[0,0]
         moment = np.cross(locs[i].flatten(), fi.flatten())
@@ -220,8 +216,6 @@ def motion_model(eta, nu, thrust, dt):
     nu[0,0] = nu[0,0]+accel1[0,0]*dt
     #nu[2,0] = nu[2,0]+accel1[1,0]*dt #no lateral accel...
     nu[4,0] = nu[4,0]+accel1[2,0]*dt
-    # print("actual qdot is: ", accel1[2,0])
-    # print("actual udot is: ", accel1[0,0])
     
     #Now we are doing lateral dynamics (v,p,r). For us, the linear dynamics of  v should be 0, but this is because the thrust in this dimension will be 0.
 
@@ -242,7 +236,6 @@ def motion_model(eta, nu, thrust, dt):
     RHS2 = t2-D@s2-C@s2
     accel2 = np.linalg.inv(M_T)@RHS2
     #nu[1,0] = nu[1,0]+accel2[0,0]*dt #no lateral accel...
-    #print(accel2[1,0])
     nu[3,0] = nu[3,0]+accel2[1,0]*dt
     nu[5,0] = nu[5,0]+accel2[2,0]*dt
 
@@ -264,7 +257,6 @@ def motion_model(eta, nu, thrust, dt):
         qdelta = Rotation.from_rotvec(ang_vel * dt)#.as_matrix()
         #qdelta = np.array([dt*mag_ang_vel, ang_vel[0]/mag_ang_vel,ang_vel[1]/mag_ang_vel,ang_vel[2]/mag_ang_vel])
         #rot = Rotation.from_quat(qdelta)
-        #print(rot.as_quat())
         new_R = qdelta*R
 
 
@@ -272,7 +264,6 @@ def motion_model(eta, nu, thrust, dt):
         magnitude = np.linalg.norm(new_orientation)
 
         # Renormalize the quaternion
-        #print(new_orientation)
         new_orientation = new_orientation / magnitude
 
     eta[0,0] = eta[0,0]+dt*world_linear_vel[0]
@@ -289,9 +280,6 @@ def motion_model(eta, nu, thrust, dt):
     # body2world[-3:,-3:] = body2worldTrans(theta)
     # globalChange = body2world@nu#compGlobalChange(theta, nu)
     # # globalChange = local_to_global_velocity(eta, nu)
-    # print("eta",eta)
-    # print(nu)
-    # print(globalChange)
     # # if(globalChange[4,0]!=globalChange[5,0]):
     #     # input("ERROR!!")
     # eta = eta+dt*globalChange#FIXME: do we need to include nudot here too?

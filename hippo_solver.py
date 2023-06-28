@@ -27,6 +27,7 @@ class solver(object):
         if(self.MODE == 2):
             f4 = np.array([0,0,0])
             f2 = np.array([0,0,0])
+        #print("F IS: ", f1, " ",f2, " ",f3)
         eq1 = f1[0]+f2[0]+f3[0]+f4[0]-self.thrust[0,0]
         #eq1 = 0
         #Dont care about roll... so set this equation equal to 0. moments don't matter.
@@ -95,6 +96,7 @@ class solver(object):
 
         thrust_init_guess = np.array([1, 0.1, 0.1])
         thrust = fsolve(self.eq2, thrust_init_guess)
+        #print("THRUST GOOD: ",thrust)
         self.thrust[0,0] = thrust[0]
         self.thrust[4,0] = thrust[1]
         self.thrust[5,0] = thrust[2]
@@ -121,5 +123,8 @@ class solver(object):
             [solution[2]],
             [solution[3]]
         ])
+        # print("NU: ", nu)
+        # print("u-rdot: ", udot, " ", qdot, " ", rdot)
+        #print("esc vals ", escVals)
 
         return escVals
