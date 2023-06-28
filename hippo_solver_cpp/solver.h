@@ -1,13 +1,13 @@
 //The input for our solver is our desired thrusts, t_0 (linear x), t_4 (ang. pitch?), and t_5 (ang. yaw)
-#ifndef solver
-#define solver
+#ifndef sol
+#define sol
 
 #include <Eigen/Dense>
-//TODO: move this into the constructor.
 
 class solver{
     public:
         solver();
+
         Eigen::Vector4d getESC();
         void computeThrusts(double udot, double qdot, double rdot, double nu0, double nu4, double nu5);
         
@@ -28,4 +28,5 @@ class solver{
         double function(double x);
         double deriv(double x);
 };
+
 #endif  
