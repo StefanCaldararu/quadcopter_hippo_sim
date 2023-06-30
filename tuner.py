@@ -4,7 +4,7 @@ import numpy as np
 
 from scipy.spatial.transform import Rotation
 from PD_hippo import PD
-from hippo_solver import solver
+from hippo_solver_linear import solver
 from skopt import gp_minimize
 
 M_A = np.diag([-1.11, -2.80, -2.80, -0.00451, -0.0163, -0.0163])
@@ -25,17 +25,11 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 def main(inp):
     a1 = inp[0]
     b1 = inp[1]
-    c1 = inp[2]
-    d1 = inp[3]
-    e1 = inp[4]
-    a2 = inp[5]
-    b2 = inp[6]
-    c2 = inp[7]
-    d2 = inp[8]
-    e2 = inp[9]
+    a2 = inp[2]
+    b2 = inp[3]
 
     dt = 0.01
-    eta = np.array([[0],[0],[0],[1],[0.0],[0.0],[0.0]])
+    eta = np.array([[0],[0],[0.2],[1],[0.0],[0.0],[0.0]])
     nu = np.zeros((6,1), dtype = float)
     #nu[0,0] = 1.0
     #nu[4,0] = 1
@@ -44,7 +38,7 @@ def main(inp):
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 5
+    end = 10
     time = np.arange(start, end, dt)
     #plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
@@ -60,10 +54,13 @@ def main(inp):
 
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
             #orientation = q2e(orientation)
-            qdot = a1*eta[2,0]+b1*orientation[1]+c1*orientation[2]+d1*orientation[3]+e1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
-            rdot = a2*eta[1,0]+b2*orientation[1]+c2*orientation[2]+d2*orientation[3]+e2*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
-            ESC = np.clip(sol.solve(udot, qdot, rdot, nu), 1500, 2000)
-
+            # qdot = a1*eta[2,0]+b1*orientation[1]+c1*orientation[2]+d1*orientation[3]+e1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
+            # rdot = a2*eta[1,0]+b2*orientation[1]+c2*orientation[2]+d2*orientation[3]+e2*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
+            pitch_diff, yaw_diff = gorx(eta)
+            qdot = a1*pitch_diff+b1*nu[4,0]
+            rdot = a2*yaw_diff+b2*nu[5,0]
+            sol.compute_thrusts(udot, qdot, rdot, nu[0,0], nu[4,0], nu[5,0])
+            ESC = sol.getESC()
         thrust = computeThrust(ESC)
         # print(ESC)
         eta, nu = motion_model(eta, nu, thrust, dt)
@@ -72,8 +69,71 @@ def main(inp):
         eta[4,0] = fix_angle(eta[4,0])
         eta[5,0] = fix_angle(eta[5,0])
         count = count+1
-        dhist.append(np.sqrt(eta[1,0]**2+eta[2,0]**2))
+        if(t>6):
+            dhist.append(np.sqrt(eta[1,0]**2+eta[2,0]**2))
     return np.max(np.abs(dhist))
+
+
+
+
+#get orientation relative to x-axis
+
+def gorx(eta):
+    location = np.array([eta[0,0], eta[1,0], eta[2,0]])
+    orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
+    if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
+        orientation[0] = 1
+    R = Rotation.from_quat(orientation).as_matrix()
+    Rinv = np.linalg.inv(R)
+    x_axis = np.array([1,0,0])
+    desired_heading_global = np.array([1,-location[1], -location[2]])
+    desired_heading = Rinv@desired_heading_global
+    desired_heading /=np.linalg.norm(desired_heading)
+    #print(desired_heading)
+    
+    xy1 = np.array([x_axis[0], x_axis[1]])
+    xy2 = np.array([desired_heading[0], desired_heading[1]])
+    mag1 = np.linalg.norm(xy1)
+    mag2 = np.linalg.norm(xy2)
+    dp = np.dot(xy1, xy2)
+    cosang = dp/(mag1*mag2)
+    yaw_diff = np.arccos(cosang)
+
+    xz1 = np.array([x_axis[0], x_axis[2]])
+    xz2 = np.array([desired_heading[0],desired_heading[2]])
+    mag1 = np.linalg.norm(xz1)
+    mag2 = np.linalg.norm(xz2)
+    dp = np.dot(xy1, xy2)
+    cosang = dp/(mag1*mag2)
+    pitch_diff = np.arccos(cosang)
+
+    return pitch_diff, yaw_diff
+# def gorx(eta):
+#     location = np.array([eta[0,0], eta[1,0], eta[2,0]])
+#     orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[5,0]])
+#     tp = np.array([eta[0,0]+0.2, 0,0])
+#     R = Rotation.from_quat(orientation).as_matrix()
+#     my_xaxis = R@np.array([1,0,0])
+#     direction_vector = tp-location
+#     direction_vector /= np.linalg.norm(direction_vector)
+
+#     xy1 = np.array([my_xaxis[0], my_xaxis[1]])
+#     xy2 = np.array([direction_vector[0], direction_vector[1]])
+#     mag1 = np.linalg.norm(xy1)
+#     mag2 = np.linalg.norm(xy2)
+#     dp = np.dot(xy1, xy2)
+#     cosang = dp/(mag1*mag2)
+#     yaw_diff = np.arccos(cosang)
+
+#     xz1 = np.array([my_xaxis[0], my_xaxis[2]])
+#     xz2 = np.array([direction_vector[0], direction_vector[2]])
+#     mag1 = np.linalg.norm(xz1)
+#     mag2 = np.linalg.norm(xz2)
+#     dp = np.dot(xy1, xy2)
+#     cosang = dp/(mag1*mag2)
+#     pitch_diff = np.arccos(cosang)
+
+#     return pitch_diff, yaw_diff
 
 def q2e(quaternion):
     if(quaternion[0] == 0):
@@ -303,7 +363,7 @@ def world2bodyRot(theta):
     R = body2worldRot(theta)
     return np.linalg.inv(R)
 if __name__ == '__main__':
-    bounds = [(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50),(-50,50)]
+    bounds = [(-50,50),(-50,50),(-50,50),(-50,50)]
 
     # Perform Bayesian optimization
     result = gp_minimize(
