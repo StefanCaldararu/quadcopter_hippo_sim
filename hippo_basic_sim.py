@@ -31,7 +31,9 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 def main():
     dt = 0.001
     #orientation represented as quaternion
-    eta = np.array([[0],[0.3],[0],[1],[0.0],[0.0],[0.0]])
+    eta = np.array([[0],[0.0],[0.3],[1],[0.0],[0.0],[0.0]])
+    #eta = np.array([[0],[0.2],[0.0],[0.965925], [0.258819],[0.258819],[0.258819]])
+    #eta = np.array([[0],[0],[0.2],[0],[1],[0],[0]])
     #angular velocities no quaternions...
     nu = np.zeros((6,1), dtype = float)
     #nu[0,0] = 1.0
@@ -41,7 +43,7 @@ def main():
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 20
+    end = 5
     time = np.arange(start, end, dt)
     visual = False
     mot = 1
@@ -62,13 +64,21 @@ def main():
         #     udot, qdot, rdot = 0.3, 0, 0.1
         if(count%100 == 0):
             udot = -(nu[0,0]-0.5)
-            a1, b1, c1, d1, e1, a2, b2, c2, d2, e2 = 50, 26, 25, 27, -10, -46, -41, 49, 18, -19
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            #orientation = q2e(orientation)
-            qdot = a1*eta[2,0]+b1*orientation[1]+c1*orientation[2]+d1*orientation[3]+e1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
-            rdot = a2*eta[1,0]+b2*orientation[1]+c2*orientation[2]+d2*orientation[3]+e2*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
+            a1, b1, a2, b2 = 1, -1, 1, -1
+            pitch_diff, yaw_diff = gorx(eta)
+            print("PITCH: ", pitch_diff)
+            print("YAW: ", yaw_diff)
+            # if(eta[1,0]<0):
+            #     yaw_diff = -yaw_diff
+            # if(eta[2,0]<0):
+            #     pitch_diff = -pitch_diff
+            qdot = a1*pitch_diff+b1*nu[4,0]
+            rdot = a2*yaw_diff+b2*nu[5,0]
+            print(qdot)
+            print(rdot)
             #ESC = np.clip(sol_good.solve(udot, qdot, rdot, nu), 1500, 2000)
-            print("Accels ", udot, " ", qdot, " ", rdot)
+            #print(ESC)
             sol.compute_thrusts(udot, qdot, rdot, nu[0,0], nu[4,0], nu[5,0])
             ESC = sol.getESC()
             print("BAD ", ESC)
@@ -79,8 +89,8 @@ def main():
             if(mot == 2):
                 ESC[3,0] = 0
                 ESC[1,0] = 0
-            R = Rotation.from_quat(orientation).as_matrix()
             if(visual):
+                R = Rotation.from_quat(orientation).as_matrix()
                 plot.plot(eta[:3], R)
 
         #ESC = np.array([[0],[0],[1900],[0]])
@@ -106,6 +116,71 @@ def main():
     plt.xlabel('Position x', fontsize=20)
     plt.ylabel('Position Y-Z', fontsize=20)
     plt.show()
+
+
+#get orientation relative to x-axis
+def gorx(eta):
+    location = np.array([eta[0,0], eta[1,0], eta[2,0]])
+    orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
+    if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
+        orientation[0] = 1
+    R = Rotation.from_quat(orientation).as_matrix()
+    Rinv = np.linalg.inv(R)
+    x_axis = np.array([1,0,0])
+    desired_heading_global = np.array([1,-location[1], -location[2]])
+    desired_heading = Rinv@desired_heading_global
+    desired_heading /=np.linalg.norm(desired_heading)
+    print(desired_heading)
+    
+    xy1 = np.array([x_axis[0], x_axis[1]])
+    xy2 = np.array([desired_heading[0], desired_heading[1]])
+    mag1 = np.linalg.norm(xy1)
+    mag2 = np.linalg.norm(xy2)
+    dp = np.dot(xy1, xy2)
+    cosang = dp/(mag1*mag2)
+    yaw_diff = np.arccos(cosang)
+
+    xz1 = np.array([x_axis[0], x_axis[2]])
+    xz2 = np.array([desired_heading[0],desired_heading[2]])
+    mag1 = np.linalg.norm(xz1)
+    mag2 = np.linalg.norm(xz2)
+    dp = np.dot(xy1, xy2)
+    cosang = dp/(mag1*mag2)
+    pitch_diff = np.arccos(cosang)
+
+    return pitch_diff, yaw_diff
+
+
+
+# def gorx(eta):
+#     location = np.array([eta[0,0], eta[1,0], eta[2,0]])
+#     orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
+#     tp = np.array([1, -eta[1,0],-eta[2,0]])
+#     R = Rotation.from_quat(orientation).as_matrix()
+#     Rinv = np.linalg.inv(R)
+#     my_xaxis = R@np.array([1,0,0])
+#     direction_vector = tp-location
+#     direction_vector /= np.linalg.norm(direction_vector)
+#     direction_vector = Rinv@direction_vector
+#     if(direction_vector[0]<0):
+#         direction_vector = -1*direction_vector
+#     print(direction_vector)
+#     xy1 = np.array([my_xaxis[0], my_xaxis[1]])
+#     xy2 = np.array([direction_vector[0], direction_vector[1]])
+#     mag1 = np.linalg.norm(xy1)
+#     mag2 = np.linalg.norm(xy2)
+#     dp = np.dot(xy1, xy2)
+#     cosang = dp/(mag1*mag2)
+#     yaw_diff = np.arccos(cosang)
+
+#     xz1 = np.array([my_xaxis[0], my_xaxis[2]])
+#     xz2 = np.array([direction_vector[0], direction_vector[2]])
+#     mag1 = np.linalg.norm(xz1)
+#     mag2 = np.linalg.norm(xz2)
+#     dp = np.dot(xy1, xy2)
+#     cosang = dp/(mag1*mag2)
+#     pitch_diff = np.arccos(cosang)
+#     return pitch_diff, yaw_diff
 
 def fix_angle(theta):
     if(theta>np.pi):
