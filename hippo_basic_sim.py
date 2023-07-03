@@ -3,6 +3,7 @@
 #this uses the general model, and doesn't work well... problems with the C matrices
 #sim the dynamics of the hippocampus, given the old BSC066 parameters.
 #Ignoring Coriolis, and assuming values from
+from urllib.parse import quote_from_bytes
 from wsgiref.simple_server import WSGIRequestHandler
 import numpy as np 
 from quad_vis import vis
@@ -31,7 +32,8 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 def main():
     dt = 0.001
     #orientation represented as quaternion
-    eta = np.array([[0],[0.0],[0.3],[1],[0.0],[0.0],[0.0]])
+    #eta = np.array([[0],[0.0],[-0.3],[0.3826834],[0.0],[0.0],[0.9238796]])
+    eta = np.array([[0],[0.3],[0.0],[1],[0.0],[0.0],[0]])
     #eta = np.array([[0],[0.2],[0.0],[0.965925], [0.258819],[0.258819],[0.258819]])
     #eta = np.array([[0],[0],[0.2],[0],[1],[0],[0]])
     #angular velocities no quaternions...
@@ -65,7 +67,7 @@ def main():
         if(count%100 == 0):
             udot = -(nu[0,0]-0.5)
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            a1, b1, a2, b2 = 1, -1, 1, -1
+            a1, b1, a2, b2 = -2, -1, -2, -1
             pitch_diff, yaw_diff = gorx(eta)
             print("PITCH: ", pitch_diff)
             print("YAW: ", yaw_diff)
@@ -73,22 +75,25 @@ def main():
             #     yaw_diff = -yaw_diff
             # if(eta[2,0]<0):
             #     pitch_diff = -pitch_diff
+            # qdot = -0.1
+            # rdot = 0#.1
             qdot = a1*pitch_diff+b1*nu[4,0]
             rdot = a2*yaw_diff+b2*nu[5,0]
             print(qdot)
             print(rdot)
-            #ESC = np.clip(sol_good.solve(udot, qdot, rdot, nu), 1500, 2000)
+            # ESC = np.clip(sol_good.solve(udot, qdot, rdot, nu), 1500, 2000)
             #print(ESC)
             sol.compute_thrusts(udot, qdot, rdot, nu[0,0], nu[4,0], nu[5,0])
             ESC = sol.getESC()
+            # ESC = np.array([[1600],[1600],[1600],[0]])
             print("BAD ", ESC)
             # print("LOC: ", eta)
-            input("Press Enter to continue...")
+            #input("Press Enter to continue...")
             if(mot==1):
-                ESC[3,0] = 0
+                ESC[3,0] = 1500
             if(mot == 2):
-                ESC[3,0] = 0
-                ESC[1,0] = 0
+                ESC[3,0] = 1500
+                ESC[1,0] = 1500
             if(visual):
                 R = Rotation.from_quat(orientation).as_matrix()
                 plot.plot(eta[:3], R)
@@ -125,30 +130,27 @@ def gorx(eta):
     if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
         orientation[0] = 1
     R = Rotation.from_quat(orientation).as_matrix()
+    e_des = np.array([1,-location[1],-location[2]])
+    e_des /= np.linalg.norm(e_des)
+    e_x = R@np.array([1,0,0])
+    alpha = np.arccos(np.dot(e_x, e_des))
+    n = np.cross(e_x,e_des)/np.linalg.norm(np.cross(e_x,e_des))
     Rinv = np.linalg.inv(R)
-    x_axis = np.array([1,0,0])
-    desired_heading_global = np.array([1,-location[1], -location[2]])
-    desired_heading = Rinv@desired_heading_global
-    desired_heading /=np.linalg.norm(desired_heading)
-    print(desired_heading)
-    
-    xy1 = np.array([x_axis[0], x_axis[1]])
-    xy2 = np.array([desired_heading[0], desired_heading[1]])
-    mag1 = np.linalg.norm(xy1)
-    mag2 = np.linalg.norm(xy2)
-    dp = np.dot(xy1, xy2)
-    cosang = dp/(mag1*mag2)
-    yaw_diff = np.arccos(cosang)
+    n_B = Rinv@n
+    q_w = np.cos(alpha/2)
+    q_y = n_B[1]*np.sin(alpha/2)
+    q_z = n_B[2]*np.sin(alpha/2)
+    p = 1
+    desired_q =p*2*q_y #roll rate
+    desired_r = p*2*q_z#yaw rate
+    if(q_w>=0):
+        desired_q = -desired_q
+        desired_r = -desired_r
 
-    xz1 = np.array([x_axis[0], x_axis[2]])
-    xz2 = np.array([desired_heading[0],desired_heading[2]])
-    mag1 = np.linalg.norm(xz1)
-    mag2 = np.linalg.norm(xz2)
-    dp = np.dot(xy1, xy2)
-    cosang = dp/(mag1*mag2)
-    pitch_diff = np.arccos(cosang)
 
-    return pitch_diff, yaw_diff
+
+
+    return desired_q, desired_r
 
 
 
@@ -217,9 +219,13 @@ def computeThrust(ESC):
     #for now, assuming thrusters can only go forward. TODO: fix this...
     for i in range(0,4):
         escval = ESC[i,0]
-        f[i,0,0] = p3*escval**3+p2*escval**2+p1*escval+p0
-        if(f[i,0,0]<0):
+        if(escval>1553.74):
+            f[i,0,0] = p3*escval**3+p2*escval**2+p1*escval+p0
+        elif(escval<=1553.74 and escval>=1446.26):
             f[i,0,0] = 0
+        else:
+            escval = 3000-escval
+            f[i,0,0] = -(p3*escval**3+p2*escval**2+p1*escval+p0)
     #motor positions, around the body reference frame.
     #assuming each motor is positioned 2cm behind com, and 4 cm outside the body.
     m1p = np.array([
@@ -257,7 +263,7 @@ def computeThrust(ESC):
         thrust[0,0] = thrust[0,0]+fi[0,0]
         moment = np.cross(locs[i].flatten(), fi.flatten())
         moment = np.reshape(moment,(3,1))
-        thrust[3,0] = thrust[3,0]+moment[0,0]+m3
+        thrust[3,0] = thrust[3,0]+moment[0,0]#+m3
         thrust[4,0] = thrust[4,0]+moment[1,0]
         thrust[5,0] = thrust[5,0]+moment[2,0]
         
@@ -310,6 +316,8 @@ def motion_model(eta, nu, thrust, dt):
     s2 = np.array([[nu[1,0]], [nu[3,0]], [nu[5,0]]])
     RHS2 = t2-D@s2-C@s2
     accel2 = np.linalg.inv(M_T)@RHS2
+    print("QDOT IS: ", accel1[2,0])
+    print("RDOT IS: ", accel2[2,0])
     #nu[1,0] = nu[1,0]+accel2[0,0]*dt #no lateral accel...
     nu[3,0] = nu[3,0]+accel2[1,0]*dt
     nu[5,0] = nu[5,0]+accel2[2,0]*dt
