@@ -33,9 +33,20 @@ def main():
     dt = 0.001
     #orientation represented as quaternion
     #eta = np.array([[0],[0.0],[-0.3],[0.3826834],[0.0],[0.0],[0.9238796]])
-    eta = np.array([[0],[0.3],[0.0],[1],[0.0],[0.0],[0]])
+    #QUAT: (X,Y,Z,W)
+    #NOT ROTATED:
+    eta = np.array([[0],[0.3],[0.0],[0],[0],[0],[1]])
+    #ROTATED BY 90 about X:
+    eta = np.array([[0],[0.3],[0.0],[0.7071068],[0],[0],[0.7071068]])
+    #ROTATED BY 180 about X:
+    #eta = np.array([[0],[0.3],[0.2],[1],[0],[0],[0]])
+    #eta = np.array([[0],[0.3],[0.0],[-0.7071068],[0],[0],[0.7071068]])
+    #30 degrees:
+    #eta = np.array([[0],[0.3],[0.0],[0.2588192], [0], [0], [0.9659258]])
+
     #eta = np.array([[0],[0.2],[0.0],[0.965925], [0.258819],[0.258819],[0.258819]])
     #eta = np.array([[0],[0],[0.2],[0],[1],[0],[0]])
+    eta = np.array([[0],[0.3],[-0.2],[0.2],[0.3],[0.3],[0.2]])
     #angular velocities no quaternions...
     nu = np.zeros((6,1), dtype = float)
     #nu[0,0] = 1.0
@@ -45,7 +56,7 @@ def main():
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 5
+    end = 20
     time = np.arange(start, end, dt)
     visual = False
     mot = 1
@@ -64,10 +75,10 @@ def main():
     for t in time:
         # if(t<1):
         #     udot, qdot, rdot = 0.3, 0, 0.1
-        if(count%100 == 0):
+        if(count%10 == 0):
             udot = -(nu[0,0]-0.5)
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            a1, b1, a2, b2 = -2, -1, -2, -1
+            a1, b1, a2, b2 = -2, -1, 2, -1
             pitch_diff, yaw_diff = gorx(eta)
             print("PITCH: ", pitch_diff)
             print("YAW: ", yaw_diff)
@@ -75,20 +86,20 @@ def main():
             #     yaw_diff = -yaw_diff
             # if(eta[2,0]<0):
             #     pitch_diff = -pitch_diff
-            # qdot = -0.1
-            # rdot = 0#.1
-            qdot = a1*pitch_diff+b1*nu[4,0]
-            rdot = a2*yaw_diff+b2*nu[5,0]
-            print(qdot)
-            print(rdot)
+            # qdot = 0.1
+            # rdot = 0
+            qdot = a1*(pitch_diff+nu[4,0])#+b1*nu[4,0]
+            rdot = a2*(yaw_diff+nu[5,0])#+b2*nu[5,0]
+            print("QDOT: ",qdot)
+            print("RDOT: ", rdot)
             # ESC = np.clip(sol_good.solve(udot, qdot, rdot, nu), 1500, 2000)
             #print(ESC)
             sol.compute_thrusts(udot, qdot, rdot, nu[0,0], nu[4,0], nu[5,0])
             ESC = sol.getESC()
-            # ESC = np.array([[1600],[1600],[1600],[0]])
-            print("BAD ", ESC)
-            # print("LOC: ", eta)
             #input("Press Enter to continue...")
+
+            #ESC = np.array([[1500],[1900],[1500],[1900]])
+
             if(mot==1):
                 ESC[3,0] = 1500
             if(mot == 2):
@@ -98,11 +109,19 @@ def main():
                 R = Rotation.from_quat(orientation).as_matrix()
                 plot.plot(eta[:3], R)
 
-        #ESC = np.array([[0],[0],[1900],[0]])
+
+            # plt.cla()
+            # plt.gcf().canvas.mpl_connect('key_release_event', lambda event: [exit(0) if event.key == 'escape' else None])
+            # plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)
+            # plt.plot(xhist, zhist, label = 'XZ', color = 'b', linewidth = 0.3)
+            # plt.xlabel("X position")
+            # plt.ylabel("Y/Z position")
+            # plt.legend()
+            # plt.pause(0.0003)
+
         
         
         thrust = computeThrust(ESC)
-        # print(ESC)
         eta, nu = motion_model(eta, nu, thrust, dt)
         eta[3,0] = fix_angle(eta[3,0])
         eta[4,0] = fix_angle(eta[4,0])
@@ -112,7 +131,7 @@ def main():
         yhist.append(eta[1,0])
         zhist.append(eta[2,0])
         
-        print(t)
+        print(nu[3,0])
 
     fig = plt.figure(figsize = (7.5, 7.5))
     plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)
@@ -126,11 +145,12 @@ def main():
 #get orientation relative to x-axis
 def gorx(eta):
     location = np.array([eta[0,0], eta[1,0], eta[2,0]])
+    #(X,Y,Z,W)
     orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-    if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
-        orientation[0] = 1
+    # if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
+    #     orientation[0] = 1
     R = Rotation.from_quat(orientation).as_matrix()
-    e_des = np.array([1,-location[1],-location[2]])
+    e_des = np.array([2,-location[1],-location[2]])
     e_des /= np.linalg.norm(e_des)
     e_x = R@np.array([1,0,0])
     alpha = np.arccos(np.dot(e_x, e_des))
@@ -141,7 +161,7 @@ def gorx(eta):
     q_y = n_B[1]*np.sin(alpha/2)
     q_z = n_B[2]*np.sin(alpha/2)
     p = 1
-    desired_q =p*2*q_y #roll rate
+    desired_q =p*2*q_y #pitch rate
     desired_r = p*2*q_z#yaw rate
     if(q_w>=0):
         desired_q = -desired_q
@@ -151,38 +171,6 @@ def gorx(eta):
 
 
     return desired_q, desired_r
-
-
-
-# def gorx(eta):
-#     location = np.array([eta[0,0], eta[1,0], eta[2,0]])
-#     orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-#     tp = np.array([1, -eta[1,0],-eta[2,0]])
-#     R = Rotation.from_quat(orientation).as_matrix()
-#     Rinv = np.linalg.inv(R)
-#     my_xaxis = R@np.array([1,0,0])
-#     direction_vector = tp-location
-#     direction_vector /= np.linalg.norm(direction_vector)
-#     direction_vector = Rinv@direction_vector
-#     if(direction_vector[0]<0):
-#         direction_vector = -1*direction_vector
-#     print(direction_vector)
-#     xy1 = np.array([my_xaxis[0], my_xaxis[1]])
-#     xy2 = np.array([direction_vector[0], direction_vector[1]])
-#     mag1 = np.linalg.norm(xy1)
-#     mag2 = np.linalg.norm(xy2)
-#     dp = np.dot(xy1, xy2)
-#     cosang = dp/(mag1*mag2)
-#     yaw_diff = np.arccos(cosang)
-
-#     xz1 = np.array([my_xaxis[0], my_xaxis[2]])
-#     xz2 = np.array([direction_vector[0], direction_vector[2]])
-#     mag1 = np.linalg.norm(xz1)
-#     mag2 = np.linalg.norm(xz2)
-#     dp = np.dot(xy1, xy2)
-#     cosang = dp/(mag1*mag2)
-#     pitch_diff = np.arccos(cosang)
-#     return pitch_diff, yaw_diff
 
 def fix_angle(theta):
     if(theta>np.pi):
@@ -256,17 +244,16 @@ def computeThrust(ESC):
     thrust = np.zeros((6,1), dtype = float)
     for i in range(0,4):
         normalized = ESC[i,0]-1500
-        if(normalized<0):
-            normalized = 0
-        m3 = (normalized/500)*c_1*((-1)**i)
+        # if(normalized<0):
+        #     normalized = 0
+        m3 = (normalized/1500)*c_1*((-1)**i)
         fi = f[i]
         thrust[0,0] = thrust[0,0]+fi[0,0]
         moment = np.cross(locs[i].flatten(), fi.flatten())
         moment = np.reshape(moment,(3,1))
-        thrust[3,0] = thrust[3,0]+moment[0,0]#+m3
+        thrust[3,0] = thrust[3,0]+moment[0,0]+m3
         thrust[4,0] = thrust[4,0]+moment[1,0]
         thrust[5,0] = thrust[5,0]+moment[2,0]
-        
     return thrust
 def motion_model(eta, nu, thrust, dt):
 
@@ -316,8 +303,8 @@ def motion_model(eta, nu, thrust, dt):
     s2 = np.array([[nu[1,0]], [nu[3,0]], [nu[5,0]]])
     RHS2 = t2-D@s2-C@s2
     accel2 = np.linalg.inv(M_T)@RHS2
-    print("QDOT IS: ", accel1[2,0])
-    print("RDOT IS: ", accel2[2,0])
+    # print("QDOT IS: ", accel1[2,0])
+    # print("RDOT IS: ", accel2[2,0])
     #nu[1,0] = nu[1,0]+accel2[0,0]*dt #no lateral accel...
     nu[3,0] = nu[3,0]+accel2[1,0]*dt
     nu[5,0] = nu[5,0]+accel2[2,0]*dt
@@ -325,24 +312,17 @@ def motion_model(eta, nu, thrust, dt):
     #nu is now propogated. 
     #want to get linear velocities in world frame (using rotaiton), and apply rotation to our quaternions...
     orientation = np.array([eta[3,0],eta[4,0], eta[5,0], eta[6,0]])
-    if(orientation[0] == 0):
-        orientation = np.array([1,0,0,0])
     R = Rotation.from_quat(orientation)
-    R = R.inv()
     linear_vel = np.array([nu[0,0], nu[1,0], nu[2,0]])
-    world_linear_vel = R.apply(linear_vel)
+    world_linear_vel = R.as_matrix()@linear_vel#FIXME: apply R or Rinv here?
     ang_vel = np.array([nu[3,0], nu[4,0], nu[5,0]])
     mag_ang_vel = np.sqrt(ang_vel[0]**2+ang_vel[1]**2+ang_vel[2]**2)
     new_orientation = np.zeros(4)
 
     if(mag_ang_vel!=0):
         #angular_velocity_global = np.dot(R, ang_vel)
-        qdelta = Rotation.from_rotvec(ang_vel * dt)#.as_matrix()
-        #qdelta = np.array([dt*mag_ang_vel, ang_vel[0]/mag_ang_vel,ang_vel[1]/mag_ang_vel,ang_vel[2]/mag_ang_vel])
-        #rot = Rotation.from_quat(qdelta)
-        new_R = qdelta*R
-
-
+        qdelta = Rotation.from_rotvec(R.as_matrix()@(ang_vel * dt))#.as_matrix()
+        new_R = Rotation.from_matrix(qdelta.as_matrix()@R.as_matrix())
         new_orientation = new_R.as_quat()
         magnitude = np.linalg.norm(new_orientation)
 
@@ -356,17 +336,10 @@ def motion_model(eta, nu, thrust, dt):
     eta[4,0] = new_orientation[1]
     eta[5,0] = new_orientation[2]
     eta[6,0] = new_orientation[3]
-    # body2world = np.zeros((6,6), dtype=float)
-    # theta = np.array([[eta[3,0]],[eta[4,0]],[eta[5,0]]])
 
-    # body2world[:3, :3] = body2worldRot(theta)
-    # body2world[-3:,-3:] = body2worldTrans(theta)
-    # globalChange = body2world@nu#compGlobalChange(theta, nu)
-    # # globalChange = local_to_global_velocity(eta, nu)
-    # # if(globalChange[4,0]!=globalChange[5,0]):
-    #     # input("ERROR!!")
-    # eta = eta+dt*globalChange#FIXME: do we need to include nudot here too?
     return eta, nu
+
+
 #Rotation and transformation matrices...
 
 #compute body2world
@@ -405,16 +378,6 @@ def q2e(quaternion):
     euler_angles[2] = yaw_pitch_angles[0]  # yaw
 
     return euler_angles
-# def q2e(e0, e1, e2, e3):
-#     R = np.array([
-#         [1-2*(e2**2+e3**2), 2*(e1*e2-e3*e0), 2*(e1*e3+e2*e0)],
-#         [2*(e1*e2+e3*e0), 1-2*(e1**2+e3**2), 2*(e2*e3-e1*e0)],
-#         [2*(e1*e3-e2*e0), 2*(e2*e3+e1*e0), 1-2*(e1**2+e2**2)]
-#     ])
-#     roll = np.arctan2(R[2, 1], R[2, 2])
-#     pitch = np.arctan2(-R[2, 0], np.sqrt(R[2, 1]**2 + R[2, 2]**2))
-#     yaw = np.arctan2(R[1, 0], R[0, 0])
-#     return roll, pitch, yaw
 
 def closest_euler_angle(reference_euler, quaternion):
     # Convert the reference Euler angles to a rotation matrix
@@ -506,11 +469,6 @@ def body2worldTrans(Theta):
         [0, np.cos(phi), -np.sin(phi)],
         [0, np.sin(phi)/np.tan(theta), np.cos(phi)/np.cos(theta)]
         ])
-    # T = np.array([
-    #     [1, np.sin(phi)*np.tan(theta), np.cos(phi)*np.tan(theta)],
-    #     [0, np.cos(phi), -np.sin(phi)],
-    #     [0, np.sin(phi)/np.tan(theta), np.cos(phi)/np.cos(theta)]#FIXME: for some reason this doesn't work, div by 0... np.sin(phi)/np.tan(theta), np.cos(phi)/np.cos(theta)]
-    # ])
     return T
 def world2bodyTrans(theta):
     T = body2worldTrans(theta)

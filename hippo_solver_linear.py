@@ -10,8 +10,8 @@ class solver(object):
         self.thrust5 = 0
         self.A = np.array([
             [1,1,1],
-            [400, 0, -400],
-            [0,400, 0]
+            [25, 0, -25],
+            [0,25, 0]
         ])
 
     def compute_thrusts(self, udot, qdot, rdot, nu0, nu4, nu5):
@@ -20,8 +20,15 @@ class solver(object):
         self.thrust5 = (0.010717+0.0163)*rdot+nu5*(-0.007)
         #print("THRUST BAD: ", self.thrust0, " ",self.thrust4, " ",self.thrust5 )
     def getESC(self):
-        b = np.array([self.thrust0, self.thrust4, self.thrust5])
-        x = np.linalg.solve(self.A, b)
+        print(self.thrust0)
+        f2 = 25*self.thrust5
+        f1 = (self.thrust0+25*self.thrust4-25*self.thrust5)/2
+        f3 = (self.thrust0-25*self.thrust4-25*self.thrust5)/2
+        # if(f2<0):
+        #     input()
+        x = np.array([f1, f2, f3])
+        # b = np.array([self.thrust0, self.thrust4, self.thrust5])
+        # x = np.linalg.solve(self.A, b)
         #print("X BAD: ", x)
         ESCs = np.zeros(3)
         for i in range(0,3):
@@ -31,6 +38,10 @@ class solver(object):
         return ESCs
 
     def f2esc(self, f):
+        neg = 1
+        if(f<0):
+            f = abs(f)
+            neg = -1
         lower_bound = 1500
         upper_bound = 2000
         e = 1e-6
@@ -43,7 +54,10 @@ class solver(object):
             if(x>upper_bound):
                 x = upper_bound
                 break
-        return x
+        if(neg == -1):
+            return 3000-x
+        else:
+            return x
 
 
     def function(self,x):
