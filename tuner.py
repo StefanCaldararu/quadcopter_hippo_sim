@@ -4,7 +4,7 @@ import numpy as np
 
 from scipy.spatial.transform import Rotation
 from PD_hippo import PD
-from hippo_solver_linear import solver
+from twomotor_linear_solver import solver
 from skopt import gp_minimize
 
 M_A = np.diag([-1.11, -2.80, -2.80, -0.00451, -0.0163, -0.0163])
@@ -25,89 +25,145 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 def main(inp):
     a1 = inp[0]
     b1 = inp[1]
-    a2 = inp[2]
-    b2 = inp[3]
 
     dt = 0.01
-    eta = np.array([[0],[0],[0.2],[1],[0.0],[0.0],[0.0]])
+    #orientation represented as quaternion
+    #eta = np.array([[0],[0.0],[-0.3],[0.3826834],[0.0],[0.0],[0.9238796]])
+    #QUAT: (X,Y,Z,W)
+    #NOT ROTATED:
+    eta = np.array([[0],[0.3],[0.0],[0],[0],[0],[1]])
+    #ROTATED BY 90 about X:
+    #eta = np.array([[0],[0.3],[0.0],[0.7071068],[0],[0],[0.7071068]])
+    #ROTATED BY 180 about X:
+    eta = np.array([[0],[0.2],[0.3],[0],[0],[0],[1]])
+    #eta = np.array([[0],[0.3],[0.0],[-0.7071068],[0],[0],[0.7071068]])
+    #30 degrees:
+    #eta = np.array([[0],[0.3],[0.0],[0.2588192], [0], [0], [0.9659258]])
+
+    #eta = np.array([[0],[0.2],[0.0],[0.965925], [0.258819],[0.258819],[0.258819]])
+    #eta = np.array([[0],[0],[0.2],[0],[1],[0],[0]])
+    #eta = np.array([[0],[0.3],[-0.2],[0.2650637], [-0.0000295], [0.2315393], [0.9360186]])
+    #angular velocities no quaternions...
     nu = np.zeros((6,1), dtype = float)
     #nu[0,0] = 1.0
-    #nu[4,0] = 1
+    #nu[4,0] = 0.0
     #nu[5,0] = 1
 
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 10
+    end = 50
     time = np.arange(start, end, dt)
-    #plot = vis(0.5)#FIXME: make this so that it can vis horizontal
+    visual = False
+    mot = 2
+    if(visual):
+        plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
     count = 0
     udot, qdot, rdot = 0,0,0
+    xhist = []
+    yhist = []
+    zhist = []
     dhist = []
+
+    # 0.25 for motor is max moment.
 
     for t in time:
         # if(t<1):
         #     udot, qdot, rdot = 0.3, 0, 0.1
-        if(count%10 == 0):
+        if(count%1 == 0):
             udot = -(nu[0,0]-0.5)
-
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            #orientation = q2e(orientation)
-            # qdot = a1*eta[2,0]+b1*orientation[1]+c1*orientation[2]+d1*orientation[3]+e1*nu[4,0]#1000*compAngles(0,eta[4,0])-1*eta[3,0]
-            # rdot = a2*eta[1,0]+b2*orientation[1]+c2*orientation[2]+d2*orientation[3]+e2*nu[5,0]#1000*compAngles(0,eta[5,0])-1*eta[2,0]
+            #TODO: make them negative... bcs?
             pitch_diff, yaw_diff = gorx(eta)
-            qdot = a1*pitch_diff+b1*nu[4,0]
-            rdot = a2*yaw_diff+b2*nu[5,0]
-            sol.compute_thrusts(udot, qdot, rdot, nu[0,0], nu[4,0], nu[5,0])
-            ESC = sol.getESC()
-        thrust = computeThrust(ESC)
-        # print(ESC)
-        eta, nu = motion_model(eta, nu, thrust, dt)
+            if(t>6):
+                dhist.append(pitch_diff)
+                dhist.append(yaw_diff)
+            #project the pitch diff and yaw diff onto the line y = z
+            line = np.array([1,-1])
+            vec = np.array([pitch_diff, yaw_diff])
+            scaling = (np.dot(vec, line)/np.dot(line, line))
+            #print(cont)
+            #print(nu[5,0])
+            #now we have the controllability of our vehicle. If it is very small (0), then we want ot go straight. If it is large positive or negative, want to steer the vehicle.
 
+
+            #qdot = a*(cont)#+b1*nu[4,0]
+            rdot = a1*(scaling)+b1*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
+            sol.compute_thrusts(udot, rdot, nu[0,0], nu[5,0])
+            ESC = sol.getESC()
+            #input("Press Enter to continue...")
+
+            #ESC = np.array([[1500],[1900],[1500],[1900]])
+
+            if(mot==1):
+                ESC[3,0] = 1500
+            if(mot == 2):
+                ESC[3,0] = 1500
+                ESC[1,0] = 1500
+            if(visual):
+                R = Rotation.from_quat(orientation).as_matrix()
+                plot.plot(eta[:3], R)
+
+        thrust = computeThrust(ESC)
+        eta, nu = motion_model(eta, nu, thrust, dt)
         eta[3,0] = fix_angle(eta[3,0])
         eta[4,0] = fix_angle(eta[4,0])
         eta[5,0] = fix_angle(eta[5,0])
         count = count+1
-        if(t>6):
-            dhist.append(np.sqrt(eta[1,0]**2+eta[2,0]**2))
+        xhist.append(eta[0,0])
+        yhist.append(eta[1,0])
+        zhist.append(eta[2,0])
+        # if(t>6):
+        #     dhist.append(np.sqrt(eta[1,0]**2+eta[2,0]**2))
+        # if(count%2000 == 0):
+        #     fig = plt.figure(figsize = (7.5, 7.5))
+        #     plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)
+        #     plt.plot(xhist, zhist, label = 'XZ', color = 'b', linewidth = 0.3)
+        #     plt.legend()
+        #     plt.xlabel('Position x', fontsize=20)
+        #     plt.ylabel('Position Y-Z', fontsize=20)
+        #     plt.show()
+        #print(t)
+
+    # sumd = 0
+    # for d in dhist:
+    #     sumd = sumd+abs(d)
     return np.max(np.abs(dhist))
 
 
 
 
 #get orientation relative to x-axis
-
 def gorx(eta):
     location = np.array([eta[0,0], eta[1,0], eta[2,0]])
+    #(X,Y,Z,W)
     orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-    if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
-        orientation[0] = 1
+    # if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
+    #     orientation[0] = 1
     R = Rotation.from_quat(orientation).as_matrix()
+    e_des = np.array([2,-location[1],-location[2]])
+    e_des /= np.linalg.norm(e_des)
+    e_x = R@np.array([1,0,0])
+    alpha = np.arccos(np.dot(e_x, e_des))
+    n = np.cross(e_x,e_des)/np.linalg.norm(np.cross(e_x,e_des))
     Rinv = np.linalg.inv(R)
-    x_axis = np.array([1,0,0])
-    desired_heading_global = np.array([1,-location[1], -location[2]])
-    desired_heading = Rinv@desired_heading_global
-    desired_heading /=np.linalg.norm(desired_heading)
-    #print(desired_heading)
-    
-    xy1 = np.array([x_axis[0], x_axis[1]])
-    xy2 = np.array([desired_heading[0], desired_heading[1]])
-    mag1 = np.linalg.norm(xy1)
-    mag2 = np.linalg.norm(xy2)
-    dp = np.dot(xy1, xy2)
-    cosang = dp/(mag1*mag2)
-    yaw_diff = np.arccos(cosang)
+    n_B = Rinv@n
+    q_w = np.cos(alpha/2)
+    q_y = n_B[1]*np.sin(alpha/2)
+    q_z = n_B[2]*np.sin(alpha/2)
+    p = 1
+    desired_q =p*2*q_y #pitch rate
+    desired_r = p*2*q_z#yaw rate
+    if(q_w>=0):
+        desired_q = -desired_q
+        desired_r = -desired_r
 
-    xz1 = np.array([x_axis[0], x_axis[2]])
-    xz2 = np.array([desired_heading[0],desired_heading[2]])
-    mag1 = np.linalg.norm(xz1)
-    mag2 = np.linalg.norm(xz2)
-    dp = np.dot(xy1, xy2)
-    cosang = dp/(mag1*mag2)
-    pitch_diff = np.arccos(cosang)
 
-    return pitch_diff, yaw_diff
+
+
+    return desired_q, desired_r
+
 # def gorx(eta):
 #     location = np.array([eta[0,0], eta[1,0], eta[2,0]])
 #     orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[5,0]])
@@ -190,9 +246,13 @@ def computeThrust(ESC):
     #for now, assuming thrusters can only go forward. TODO: fix this...
     for i in range(0,4):
         escval = ESC[i,0]
-        f[i,0,0] = p3*escval**3+p2*escval**2+p1*escval+p0
-        if(f[i,0,0]<0):
+        if(escval>1553.74):
+            f[i,0,0] = p3*escval**3+p2*escval**2+p1*escval+p0
+        elif(escval<=1553.74 and escval>=1446.26):
             f[i,0,0] = 0
+        else:
+            escval = 3000-escval
+            f[i,0,0] = -(p3*escval**3+p2*escval**2+p1*escval+p0)
     #motor positions, around the body reference frame.
     #assuming each motor is positioned 2cm behind com, and 4 cm outside the body.
     m1p = np.array([
@@ -216,19 +276,24 @@ def computeThrust(ESC):
         [0]
     ])
     locs = np.array([m1p, m2p, m3p, m4p])
+
+    #the constant for the motor created by each motor... multiply by 0-1 value of esc, between 1500-2000
+    c_1 = 0.01
     #now using lennarts model, assuming 0 moment produced by each motor.
     thrust = np.zeros((6,1), dtype = float)
     for i in range(0,4):
+        normalized = ESC[i,0]-1500
+        if(normalized<0):
+            normalized = 0
+        m3 = (normalized/500)*c_1*((-1)**i)
         fi = f[i]
         thrust[0,0] = thrust[0,0]+fi[0,0]
         moment = np.cross(locs[i].flatten(), fi.flatten())
         moment = np.reshape(moment,(3,1))
-        thrust[3,0] = thrust[3,0]+moment[0,0]
+        thrust[3,0] = thrust[3,0]+moment[0,0]+m3
         thrust[4,0] = thrust[4,0]+moment[1,0]
         thrust[5,0] = thrust[5,0]+moment[2,0]
-        #TODO: here assuming moment about motors is 0...
         
-    
     return thrust
 def motion_model(eta, nu, thrust, dt):
 
@@ -363,7 +428,7 @@ def world2bodyRot(theta):
     R = body2worldRot(theta)
     return np.linalg.inv(R)
 if __name__ == '__main__':
-    bounds = [(-50,50),(-50,50),(-50,50),(-50,50)]
+    bounds = [(-20,20.0),(-20,20.0)]
 
     # Perform Bayesian optimization
     result = gp_minimize(

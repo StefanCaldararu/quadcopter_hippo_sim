@@ -150,8 +150,8 @@ def gorx(eta):
     location = np.array([eta[0,0], eta[1,0], eta[2,0]])
     #(X,Y,Z,W)
     orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-    # if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
-    #     orientation[0] = 1
+    if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
+        orientation[0] = 1
     R = Rotation.from_quat(orientation).as_matrix()
     e_des = np.array([2,-location[1],-location[2]])
     e_des = np.linalg.inv(R)@e_des
