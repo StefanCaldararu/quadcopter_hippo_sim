@@ -8,8 +8,7 @@ from wsgiref.simple_server import WSGIRequestHandler
 import numpy as np 
 from quad_vis import vis
 from PD_hippo import PD
-from hippo_solver_linear import solver
-from hippo_solver import solver as slvr
+from twomotor_linear_solver import solver
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
@@ -38,7 +37,7 @@ def main():
     #ROTATED BY 90 about X:
     #eta = np.array([[0],[0.3],[0.0],[0.7071068],[0],[0],[0.7071068]])
     #ROTATED BY 180 about X:
-    eta = np.array([[0],[0.3],[0.2],[0],[0],[0],[1]])
+    eta = np.array([[0],[0.2],[0.3],[0],[0],[0],[1]])
     #eta = np.array([[0],[0.3],[0.0],[-0.7071068],[0],[0],[0.7071068]])
     #30 degrees:
     #eta = np.array([[0],[0.3],[0.0],[0.2588192], [0], [0], [0.9659258]])
@@ -55,14 +54,13 @@ def main():
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 50
+    end = 200
     time = np.arange(start, end, dt)
     visual = False
-    mot = 1
+    mot = 2
     if(visual):
         plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
-    sol_good = slvr()
     count = 0
     udot, qdot, rdot = 0,0,0
     xhist = []
@@ -77,24 +75,21 @@ def main():
         if(count%10 == 0):
             udot = -(nu[0,0]-0.5)
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            a1, b1, a2, b2 = -2, -1, 2, -1
-            pitch_diff, yaw_diff = gorx(eta)
-            print("PITCH: ", pitch_diff)
-            print("YAW: ", yaw_diff)
-            # if(eta[1,0]<0):
-            #     yaw_diff = -yaw_diff
-            # if(eta[2,0]<0):
-            #     pitch_diff = -pitch_diff
-            # qdot = 0.1
-            # rdot = 0
-            qdot = a1*(pitch_diff+nu[4,0])#+b1*nu[4,0]
-            rdot = a2*(yaw_diff+nu[5,0])#+b2*nu[5,0]
+            a = 0.2
+            b = 2
+            #TODO: make them negative... bcs?
+            cont = -gorx(eta)
+            #print(cont)
+            #print(nu[5,0])
+            #now we have the controllability of our vehicle. If it is very small (0), then we want ot go straight. If it is large positive or negative, want to steer the vehicle.
+
+
+            qdot = a*(cont)#+b1*nu[4,0]
+            rdot = a*(cont)+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
             # print("QDOT: ",qdot)
             # print("RDOT: ", rdot)
-            # ESC = np.clip(sol_good.solve(udot, qdot, rdot, nu), 1500, 2000)
             #print(ESC)
-            
-            sol.compute_thrusts(udot, qdot, rdot, nu[0,0], nu[4,0], nu[5,0])
+            sol.compute_thrusts(udot, rdot, nu[0,0], nu[5,0])
             ESC = sol.getESC()
             #input("Press Enter to continue...")
 
@@ -130,7 +125,15 @@ def main():
         xhist.append(eta[0,0])
         yhist.append(eta[1,0])
         zhist.append(eta[2,0])
-        # print(t)
+        # if(count%2000 == 0):
+        #     fig = plt.figure(figsize = (7.5, 7.5))
+        #     plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)
+        #     plt.plot(xhist, zhist, label = 'XZ', color = 'b', linewidth = 0.3)
+        #     plt.legend()
+        #     plt.xlabel('Position x', fontsize=20)
+        #     plt.ylabel('Position Y-Z', fontsize=20)
+        #     plt.show()
+        print(t)
         #print(nu[3,0])
 
     fig = plt.figure(figsize = (7.5, 7.5))
@@ -151,26 +154,19 @@ def gorx(eta):
     #     orientation[0] = 1
     R = Rotation.from_quat(orientation).as_matrix()
     e_des = np.array([2,-location[1],-location[2]])
+    e_des = np.linalg.inv(R)@e_des
     e_des /= np.linalg.norm(e_des)
-    e_x = R@np.array([1,0,0])
-    alpha = np.arccos(np.dot(e_x, e_des))
-    n = np.cross(e_x,e_des)/np.linalg.norm(np.cross(e_x,e_des))
-    Rinv = np.linalg.inv(R)
-    n_B = Rinv@n
-    q_w = np.cos(alpha/2)
-    q_y = n_B[1]*np.sin(alpha/2)
-    q_z = n_B[2]*np.sin(alpha/2)
-    p = 1
-    desired_q =p*2*q_y #pitch rate
-    desired_r = p*2*q_z#yaw rate
-    if(q_w>=0):
-        desired_q = -desired_q
-        desired_r = -desired_r
+    vec = np.array([e_des[1], e_des[2]])
+    line = np.array([1,1])
+    #now we have the vector we want to follow, but projected onto the y-z plane.
+
+    cont = (np.dot(vec, line)/np.dot(line, line))
 
 
 
 
-    return desired_q, desired_r
+
+    return cont
 
 def fix_angle(theta):
     if(theta>np.pi):
@@ -239,7 +235,7 @@ def computeThrust(ESC):
     locs = np.array([m1p, m2p, m3p, m4p])
 
     #the constant for the motor created by each motor... multiply by 0-1 value of esc, between 1500-2000
-    c_1 = 0.01
+    c_1 = 0.001
     #now using lennarts model, assuming 0 moment produced by each motor.
     thrust = np.zeros((6,1), dtype = float)
     for i in range(0,4):

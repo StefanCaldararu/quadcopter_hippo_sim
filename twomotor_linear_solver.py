@@ -8,22 +8,16 @@ class solver(object):
         self.thrust0 = 0
         self.thurst4 = 0
         self.thrust5 = 0
-        self.A = np.array([
-            [1,1,1],
-            [25, 0, -25],
-            [0,25, 0]
-        ])
 
-    def compute_thrusts(self, udot, qdot, rdot, nu0, nu4, nu5):
+    def compute_thrusts(self, udot, rdot, nu0, nu5):
         self.thrust0 = (1.43+1.11)*udot+nu0*5.39
-        self.thrust4 = (0.010717+0.0163)*qdot+nu4*(-0.007)
         self.thrust5 = (0.010717+0.0163)*rdot+nu5*(-0.007)
         #print("THRUST BAD: ", self.thrust0, " ",self.thrust4, " ",self.thrust5 )
     def getESC(self):
         r = 0.0685893
         f1 = (self.thrust0+(self.thrust5/r))/2
-        f3 = f1-(self.thrust4+self.thrust5)/(2*r)
-        f2 = self.thrust0-f1-f3
+        f3 = f1-(self.thrust5)/(r)
+        f2 = 0
         # f2 = 25*self.thrust5
         # f1 = (self.thrust0+25*self.thrust4-25*self.thrust5)/2
         # f3 = (self.thrust0-25*self.thrust4-25*self.thrust5)/2
@@ -37,6 +31,7 @@ class solver(object):
         for i in range(0,3):
             ESCs[i] = self.f2esc(x[i])
         ESCs = np.vstack(np.append(ESCs,0))
+        ESCs[1,0] = 0
         #print("BAD ESC: ", ESCs)
         return ESCs
 
