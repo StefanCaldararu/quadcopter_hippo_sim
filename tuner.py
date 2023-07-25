@@ -23,9 +23,10 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 
 
 def main(inp):
-    a1 = inp[0]
-    b1 = inp[1]
-
+    a = inp[0]
+    b = inp[1]
+    c = inp[2]
+    v = inp[3]
     dt = 0.01
     #orientation represented as quaternion
     #eta = np.array([[0],[0.0],[-0.3],[0.3826834],[0.0],[0.0],[0.9238796]])
@@ -35,7 +36,7 @@ def main(inp):
     #ROTATED BY 90 about X:
     #eta = np.array([[0],[0.3],[0.0],[0.7071068],[0],[0],[0.7071068]])
     #ROTATED BY 180 about X:
-    eta = np.array([[0],[0.2],[0.3],[0],[0],[0],[1]])
+    eta = np.array([[0],[3.2],[5.3],[0],[0],[0],[1]])
     #eta = np.array([[0],[0.3],[0.0],[-0.7071068],[0],[0],[0.7071068]])
     #30 degrees:
     #eta = np.array([[0],[0.3],[0.0],[0.2588192], [0], [0], [0.9659258]])
@@ -52,7 +53,7 @@ def main(inp):
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 50
+    end = 100
     time = np.arange(start, end, dt)
     visual = False
     mot = 2
@@ -76,20 +77,31 @@ def main(inp):
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
             #TODO: make them negative... bcs?
             pitch_diff, yaw_diff = gorx(eta)
-            if(t>6):
-                dhist.append(pitch_diff)
-                dhist.append(yaw_diff)
             #project the pitch diff and yaw diff onto the line y = z
             line = np.array([1,-1])
+            norm = np.array([1,1])
             vec = np.array([pitch_diff, yaw_diff])
+            # vec /=np.linalg.norm(vec)
             scaling = (np.dot(vec, line)/np.dot(line, line))
+            nscaling = (np.dot(vec, norm)/np.dot(norm, norm))
+            
+            val = 6
+            if(nscaling!=0):
+                val = abs(scaling/nscaling)
+            # print(val)
             #print(cont)
             #print(nu[5,0])
             #now we have the controllability of our vehicle. If it is very small (0), then we want ot go straight. If it is large positive or negative, want to steer the vehicle.
 
 
             #qdot = a*(cont)#+b1*nu[4,0]
-            rdot = a1*(scaling)+b1*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
+            if(val>=v):
+                rdot = np.clip(a*(scaling),-c,c)#+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
+            else:
+                rdot = b*nu[5,0]
+
+
+
             sol.compute_thrusts(udot, rdot, nu[0,0], nu[5,0])
             ESC = sol.getESC()
             #input("Press Enter to continue...")
@@ -114,8 +126,8 @@ def main(inp):
         xhist.append(eta[0,0])
         yhist.append(eta[1,0])
         zhist.append(eta[2,0])
-        # if(t>6):
-        #     dhist.append(np.sqrt(eta[1,0]**2+eta[2,0]**2))
+        if(t>6):
+            dhist.append(np.sqrt(eta[1,0]**2+eta[2,0]**2))
         # if(count%2000 == 0):
         #     fig = plt.figure(figsize = (7.5, 7.5))
         #     plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)
@@ -428,7 +440,7 @@ def world2bodyRot(theta):
     R = body2worldRot(theta)
     return np.linalg.inv(R)
 if __name__ == '__main__':
-    bounds = [(-20,20.0),(-20,20.0)]
+    bounds = [(-40.0,0),(0,40.0),(0.0,5.0),(0.0,20.0)]
 
     # Perform Bayesian optimization
     result = gp_minimize(
