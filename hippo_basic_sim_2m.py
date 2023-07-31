@@ -52,7 +52,7 @@ def main():
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 30
+    end = 100
     time = np.arange(start, end, dt)
     visual = False
     mot = 2
@@ -74,15 +74,17 @@ def main():
         if(count%10 == 0):
             udot = -(nu[0,0]-0.5)
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            a,b,c,v = -5, 5, 1, 5
+            a,b,c,v = -40, 10, 1.3336374931488102, 3.01
             #TODO: make them negative... bcs?
 
 
             pitch_diff, yaw_diff = gorx(eta)
+            a_p = pitch_diff+nu[4,0]
+            a_y = yaw_diff+nu[5,0]
             #project the pitch diff and yaw diff onto the line y = z
             line = np.array([1,-1])
             norm = np.array([1,1])
-            vec = np.array([pitch_diff, yaw_diff])
+            vec = np.array([a_p, a_y])
             # vec /=np.linalg.norm(vec)
             scaling = (np.dot(vec, line)/np.dot(line, line))
             nscaling = (np.dot(vec, norm)/np.dot(norm, norm))
@@ -90,9 +92,6 @@ def main():
             val = 6
             if(nscaling!=0):
                 val = abs(scaling/nscaling)
-            # print(val)
-            #print(cont)
-            #print(nu[5,0])
             #now we have the controllability of our vehicle. If it is very small (0), then we want ot go straight. If it is large positive or negative, want to steer the vehicle.
 
 
@@ -101,9 +100,6 @@ def main():
                 rdot = np.clip(a*(scaling),-c,c)#+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
             else:
                 rdot = b*nu[5,0]
-            # print("QDOT: ",qdot)
-            # print("RDOT: ", rdot)
-            #print(ESC)
             sol.compute_thrusts(udot, rdot, nu[0,0], nu[5,0])
             ESC = sol.getESC()
             #input("Press Enter to continue...")
