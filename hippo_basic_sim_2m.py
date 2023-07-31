@@ -35,7 +35,7 @@ def main():
     #ROTATED BY 90 about X:
     #eta = np.array([[0],[0.3],[0.0],[0.7071068],[0],[0],[0.7071068]])
     #ROTATED BY 180 about X:
-    eta = np.array([[0],[3.3],[5.2],[0],[0],[0],[1]])
+    eta = np.array([[0],[0.1],[-.3],[0],[0],[0],[1]])
     #eta = np.array([[0],[0.3],[0.0],[-0.7071068],[0],[0],[0.7071068]])
     #30 degrees:
     #eta = np.array([[0],[0.3],[0.0],[0.2588192], [0], [0], [0.9659258]])
@@ -52,7 +52,7 @@ def main():
     esc = 1600
     ESC = np.array([[esc],[esc],[esc],[esc]])
     start = 0
-    end = 100
+    end = 30
     time = np.arange(start, end, dt)
     visual = False
     mot = 2
@@ -74,7 +74,7 @@ def main():
         if(count%10 == 0):
             udot = -(nu[0,0]-0.5)
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            a,b = -10, 10
+            a,b,c,v = -5, 5, 1, 5
             #TODO: make them negative... bcs?
 
 
@@ -97,8 +97,8 @@ def main():
 
 
             #qdot = a*(cont)#+b1*nu[4,0]
-            if(val>=5):
-                rdot = np.clip(a*(scaling),-2,2)#+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
+            if(val>=v):
+                rdot = np.clip(a*(scaling),-c,c)#+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
             else:
                 rdot = b*nu[5,0]
             # print("QDOT: ",qdot)
@@ -170,7 +170,8 @@ def gorx(eta):
     #     orientation[0] = 1
     R = Rotation.from_quat(orientation).as_matrix()
     e_des = np.array([2,-location[1],-location[2]])
-    e_des /= np.linalg.norm(e_des)
+    if(np.linalg.norm(e_des)!=0):
+        e_des /= np.linalg.norm(e_des)
     e_x = R@np.array([1,0,0])
     alpha = np.arccos(np.dot(e_x, e_des))
     n = np.cross(e_x,e_des)/np.linalg.norm(np.cross(e_x,e_des))
@@ -190,159 +191,6 @@ def gorx(eta):
 
 
     return desired_q, desired_r
-
-
-
-
-
-
-
-
-
-####VERSION THAT WORKS SOMEWHAT####
-
-
-# def main():
-#     dt = 0.001
-#     #orientation represented as quaternion
-#     #eta = np.array([[0],[0.0],[-0.3],[0.3826834],[0.0],[0.0],[0.9238796]])
-#     #QUAT: (X,Y,Z,W)
-#     #NOT ROTATED:
-#     eta = np.array([[0],[0.3],[0.0],[0],[0],[0],[1]])
-#     #ROTATED BY 90 about X:
-#     #eta = np.array([[0],[0.3],[0.0],[0.7071068],[0],[0],[0.7071068]])
-#     #ROTATED BY 180 about X:
-#     eta = np.array([[0],[1.3],[2.3],[0],[0],[0],[1]])
-#     #eta = np.array([[0],[0.3],[0.0],[-0.7071068],[0],[0],[0.7071068]])
-#     #30 degrees:
-#     #eta = np.array([[0],[0.3],[0.0],[0.2588192], [0], [0], [0.9659258]])
-
-#     #eta = np.array([[0],[0.2],[0.0],[0.965925], [0.258819],[0.258819],[0.258819]])
-#     #eta = np.array([[0],[0],[0.2],[0],[1],[0],[0]])
-#     #eta = np.array([[0],[0.3],[-0.2],[0.2650637], [-0.0000295], [0.2315393], [0.9360186]])
-#     #angular velocities no quaternions...
-#     nu = np.zeros((6,1), dtype = float)
-#     #nu[0,0] = 1.0
-#     #nu[4,0] = 0.0
-#     #nu[5,0] = 1
-
-#     esc = 1600
-#     ESC = np.array([[esc],[esc],[esc],[esc]])
-#     start = 0
-#     end = 100
-#     time = np.arange(start, end, dt)
-#     visual = False
-#     mot = 2
-#     if(visual):
-#         plot = vis(0.5)#FIXME: make this so that it can vis horizontal
-#     sol = solver()
-#     count = 0
-#     udot, qdot, rdot = 0,0,0
-#     xhist = []
-#     yhist = []
-#     zhist = []
-
-#     # 0.25 for motor is max moment.
-
-#     for t in time:
-#         # if(t<1):
-#         #     udot, qdot, rdot = 0.3, 0, 0.1
-#         if(count%10 == 0):
-#             udot = -(nu[0,0]-0.5)
-#             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-#             a,b = 0.31275468906696346, 20.0
-#             #TODO: make them negative... bcs?
-#             cont, mag = gorx(eta)
-#             cont = -cont
-#             #print(cont)
-#             #print(nu[5,0])
-#             #now we have the controllability of our vehicle. If it is very small (0), then we want ot go straight. If it is large positive or negative, want to steer the vehicle.
-
-
-#             #qdot = a*(cont)#+b1*nu[4,0]
-#             rdot = a*(cont*mag)+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
-#             # print("QDOT: ",qdot)
-#             # print("RDOT: ", rdot)
-#             #print(ESC)
-#             sol.compute_thrusts(udot, rdot, nu[0,0], nu[5,0])
-#             ESC = sol.getESC()
-#             #input("Press Enter to continue...")
-
-#             #ESC = np.array([[1500],[1900],[1500],[1900]])
-
-#             if(mot==1):
-#                 ESC[3,0] = 1500
-#             if(mot == 2):
-#                 ESC[3,0] = 1500
-#                 ESC[1,0] = 1500
-#             if(visual):
-#                 R = Rotation.from_quat(orientation).as_matrix()
-#                 plot.plot(eta[:3], R)
-
-
-#             # plt.cla()
-#             # plt.gcf().canvas.mpl_connect('key_release_event', lambda event: [exit(0) if event.key == 'escape' else None])
-#             # plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)
-#             # plt.plot(xhist, zhist, label = 'XZ', color = 'b', linewidth = 0.3)
-#             # plt.xlabel("X position")
-#             # plt.ylabel("Y/Z position")
-#             # plt.legend()
-#             # plt.pause(0.0003)
-
-        
-        
-#         thrust = computeThrust(ESC)
-#         eta, nu = motion_model(eta, nu, thrust, dt)
-#         eta[3,0] = fix_angle(eta[3,0])
-#         eta[4,0] = fix_angle(eta[4,0])
-#         eta[5,0] = fix_angle(eta[5,0])
-#         count = count+1
-#         xhist.append(eta[0,0])
-#         yhist.append(eta[1,0])
-#         zhist.append(eta[2,0])
-#         # if(count%2000 == 0):
-#         #     fig = plt.figure(figsize = (7.5, 7.5))
-#         #     plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)
-#         #     plt.plot(xhist, zhist, label = 'XZ', color = 'b', linewidth = 0.3)
-#         #     plt.legend()
-#         #     plt.xlabel('Position x', fontsize=20)
-#         #     plt.ylabel('Position Y-Z', fontsize=20)
-#         #     plt.show()
-#         if(count%1000==0):
-#             print(t)
-#         #print(nu[3,0])
-#     print(eta)
-#     fig = plt.figure(figsize = (7.5, 7.5))
-#     plt.plot(xhist, yhist, label = 'XY', color = 'g', linewidth = 0.3)
-#     plt.plot(xhist, zhist, label = 'XZ', color = 'b', linewidth = 0.3)
-#     plt.legend()
-#     plt.xlabel('Position x', fontsize=20)
-#     plt.ylabel('Position Y-Z', fontsize=20)
-#     plt.show()
-
-
-# #get orientation relative to x-axis
-# def gorx(eta):
-#     location = np.array([eta[0,0], eta[1,0], eta[2,0]])
-#     #(X,Y,Z,W)
-#     orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-#     # if(orientation[0] == 0 and orientation[1] == 0 and orientation[2] == 0 and orientation[3] == 0):
-#     #     orientation[0] = 1
-#     R = Rotation.from_quat(orientation).as_matrix()
-#     e_des = np.array([2,-location[1],-location[2]])
-#     e_des = np.linalg.inv(R)@e_des
-#     #e_des /= np.linalg.norm(e_des)
-#     vec = np.array([e_des[1], e_des[2]])
-#     line = np.array([1,1])
-#     #now we have the vector we want to follow, but projected onto the y-z plane.
-#     mag = np.sqrt(vec[0]**2+vec[1]**2)
-#     cont = (np.dot(vec, line)/np.dot(line, line))
-
-
-
-
-
-#     return cont, mag
 
 def fix_angle(theta):
     if(theta>np.pi):
@@ -411,7 +259,7 @@ def computeThrust(ESC):
     locs = np.array([m1p, m2p, m3p, m4p])
 
     #the constant for the motor created by each motor... multiply by 0-1 value of esc, between 1500-2000
-    c_1 = 0.01
+    c_1 = 0.03
     #now using lennarts model, assuming 0 moment produced by each motor.
     thrust = np.zeros((6,1), dtype = float)
     for i in range(0,4):
