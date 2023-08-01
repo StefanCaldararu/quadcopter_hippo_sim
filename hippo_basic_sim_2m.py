@@ -35,7 +35,7 @@ def main():
     #ROTATED BY 90 about X:
     #eta = np.array([[0],[0.3],[0.0],[0.7071068],[0],[0],[0.7071068]])
     #ROTATED BY 180 about X:
-    eta = np.array([[0],[0.1],[-.3],[0],[0],[0],[1]])
+    eta = np.array([[0],[15.0],[-.3],[1],[0],[0],[0]])
     #eta = np.array([[0],[0.3],[0.0],[-0.7071068],[0],[0],[0.7071068]])
     #30 degrees:
     #eta = np.array([[0],[0.3],[0.0],[0.2588192], [0], [0], [0.9659258]])
@@ -74,7 +74,7 @@ def main():
         if(count%10 == 0):
             udot = -(nu[0,0]-0.5)
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            a,b,c,v = -40, 10, 1.3336374931488102, 3.01
+            a,c = -24.429521016908296, 7.158413698086627
             #TODO: make them negative... bcs?
 
 
@@ -83,23 +83,14 @@ def main():
             a_y = yaw_diff+nu[5,0]
             #project the pitch diff and yaw diff onto the line y = z
             line = np.array([1,-1])
-            norm = np.array([1,1])
             vec = np.array([a_p, a_y])
             # vec /=np.linalg.norm(vec)
             scaling = (np.dot(vec, line)/np.dot(line, line))
-            nscaling = (np.dot(vec, norm)/np.dot(norm, norm))
-            
-            val = 6
-            if(nscaling!=0):
-                val = abs(scaling/nscaling)
             #now we have the controllability of our vehicle. If it is very small (0), then we want ot go straight. If it is large positive or negative, want to steer the vehicle.
 
 
             #qdot = a*(cont)#+b1*nu[4,0]
-            if(val>=v):
-                rdot = np.clip(a*(scaling),-c,c)#+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
-            else:
-                rdot = b*nu[5,0]
+            rdot = np.clip(a*(scaling),-c,c)#+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
             sol.compute_thrusts(udot, rdot, nu[0,0], nu[5,0])
             ESC = sol.getESC()
             #input("Press Enter to continue...")
