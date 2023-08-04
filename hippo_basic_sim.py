@@ -38,7 +38,7 @@ def main():
     #ROTATED BY 90 about X:
     #eta = np.array([[0],[0.3],[0.0],[0.7071068],[0],[0],[0.7071068]])
     #ROTATED BY 180 about X:
-    eta = np.array([[0],[0.3],[0.2],[0],[0],[0],[1]])
+    eta = np.array([[0],[0],[15.2],[0],[0],[0],[1]])
     #eta = np.array([[0],[0.3],[0.0],[-0.7071068],[0],[0],[0.7071068]])
     #30 degrees:
     #eta = np.array([[0],[0.3],[0.0],[0.2588192], [0], [0], [0.9659258]])
@@ -74,13 +74,13 @@ def main():
     for t in time:
         # if(t<1):
         #     udot, qdot, rdot = 0.3, 0, 0.1
-        if(count%10 == 0):
+        if(count%1 == 0):
             udot = -(nu[0,0]-0.5)
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            a1, b1, a2, b2 = -2, -1, 2, -1
+            a1, b1, a2, b2 = -4, 1, -4, 1
             pitch_diff, yaw_diff = gorx(eta)
-            print("PITCH: ", pitch_diff)
-            print("YAW: ", yaw_diff)
+            # print("PITCH: ", pitch_diff)
+            # print("YAW: ", yaw_diff)
             # if(eta[1,0]<0):
             #     yaw_diff = -yaw_diff
             # if(eta[2,0]<0):
@@ -130,7 +130,7 @@ def main():
         xhist.append(eta[0,0])
         yhist.append(eta[1,0])
         zhist.append(eta[2,0])
-        # print(t)
+        print(t)
         #print(nu[3,0])
 
     fig = plt.figure(figsize = (7.5, 7.5))
@@ -239,7 +239,7 @@ def computeThrust(ESC):
     locs = np.array([m1p, m2p, m3p, m4p])
 
     #the constant for the motor created by each motor... multiply by 0-1 value of esc, between 1500-2000
-    c_1 = 0.01
+    c_1 = 0.03
     #now using lennarts model, assuming 0 moment produced by each motor.
     thrust = np.zeros((6,1), dtype = float)
     for i in range(0,4):

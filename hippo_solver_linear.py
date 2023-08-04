@@ -21,9 +21,19 @@ class solver(object):
         #print("THRUST BAD: ", self.thrust0, " ",self.thrust4, " ",self.thrust5 )
     def getESC(self):
         r = 0.0685893
-        f1 = (self.thrust0+(self.thrust5/r))/2
-        f3 = f1-(self.thrust4+self.thrust5)/(2*r)
-        f2 = self.thrust0-f1-f3
+        # f1 = (self.thrust0+(self.thrust5/r))/2
+        # f3 = f1-(self.thrust4+self.thrust5)/(2*r)
+        # f2 = self.thrust0-f1-f3
+        r = 0.0685893
+        A = np.array([[1,1,1],
+        [r,r,-r],
+        [-r,r,r]
+        ])
+        b = np.array([self.thrust0, self.thrust4, self.thrust5])
+        sol = np.linalg.solve(A,b)
+        f1 = sol[0]
+        f2 = sol[1]
+        f3 = sol[2]
         # f2 = 25*self.thrust5
         # f1 = (self.thrust0+25*self.thrust4-25*self.thrust5)/2
         # f3 = (self.thrust0-25*self.thrust4-25*self.thrust5)/2
