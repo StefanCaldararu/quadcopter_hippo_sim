@@ -74,10 +74,10 @@ def main():
     for t in time:
         # if(t<1):
         #     udot, qdot, rdot = 0.3, 0, 0.1
-        if(count%1 == 0):
+        if(count%10 == 0):
             udot = -(nu[0,0]-0.5)
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            a1, b1, a2, b2 = -4, 1, -4, 1
+            a1, b1, a2, b2 = -7, 1, -7, 1
             pitch_diff, yaw_diff = gorx(eta)
             # print("PITCH: ", pitch_diff)
             # print("YAW: ", yaw_diff)
