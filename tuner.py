@@ -4,7 +4,7 @@ import numpy as np
 
 from scipy.spatial.transform import Rotation
 from PD_hippo import PD
-from twomotor_linear_solver import solver
+from hippo_solver_linear import solver
 from skopt import gp_minimize
 
 M_A = np.diag([-1.11, -2.80, -2.80, -0.00451, -0.0163, -0.0163])
@@ -25,8 +25,6 @@ D_A = np.diag([-5.39, -17.36, -17.36, -0.00114, -0.007, -0.007])
 def main(inp):
     a = inp[0]
     b = inp[1]
-    c = inp[2]
-    v = inp[3]
     dt = 0.01
     #orientation represented as quaternion
     #eta = np.array([[0],[0.0],[-0.3],[0.3826834],[0.0],[0.0],[0.9238796]])
@@ -36,7 +34,7 @@ def main(inp):
     #ROTATED BY 90 about X:
     #eta = np.array([[0],[0.3],[0.0],[0.7071068],[0],[0],[0.7071068]])
     #ROTATED BY 180 about X:
-    eta = np.array([[0],[3.2],[5.3],[0],[0],[0],[1]])
+    eta = np.array([[0],[15.0],[-15.0],[0],[0],[0],[1]])
     #eta = np.array([[0],[0.3],[0.0],[-0.7071068],[0],[0],[0.7071068]])
     #30 degrees:
     #eta = np.array([[0],[0.3],[0.0],[0.2588192], [0], [0], [0.9659258]])
@@ -56,7 +54,7 @@ def main(inp):
     end = 100
     time = np.arange(start, end, dt)
     visual = False
-    mot = 2
+    mot = 1
     if(visual):
         plot = vis(0.5)#FIXME: make this so that it can vis horizontal
     sol = solver()
@@ -72,37 +70,28 @@ def main(inp):
     for t in time:
         # if(t<1):
         #     udot, qdot, rdot = 0.3, 0, 0.1
-        if(count%1 == 0):
+
+
+        if(count%10 == 0):
             udot = -(nu[0,0]-0.5)
             orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
-            #TODO: make them negative... bcs?
             pitch_diff, yaw_diff = gorx(eta)
-            #project the pitch diff and yaw diff onto the line y = z
-            line = np.array([1,-1])
-            norm = np.array([1,1])
-            vec = np.array([pitch_diff, yaw_diff])
-            # vec /=np.linalg.norm(vec)
-            scaling = (np.dot(vec, line)/np.dot(line, line))
-            nscaling = (np.dot(vec, norm)/np.dot(norm, norm))
+            # print("PITCH: ", pitch_diff)
+            # print("YAW: ", yaw_diff)
+            # if(eta[1,0]<0):
+            #     yaw_diff = -yaw_diff
+            # if(eta[2,0]<0):
+            #     pitch_diff = -pitch_diff
+            # qdot = 0.1
+            # rdot = 0
+            qdot = a*(pitch_diff+nu[4,0])#+b1*nu[4,0]
+            rdot = b*(yaw_diff+nu[5,0])#+b2*nu[5,0]
+            # print("QDOT: ",qdot)
+            # print("RDOT: ", rdot)
+            # ESC = np.clip(sol_good.solve(udot, qdot, rdot, nu), 1500, 2000)
+            #print(ESC)
             
-            val = 6
-            if(nscaling!=0):
-                val = abs(scaling/nscaling)
-            # print(val)
-            #print(cont)
-            #print(nu[5,0])
-            #now we have the controllability of our vehicle. If it is very small (0), then we want ot go straight. If it is large positive or negative, want to steer the vehicle.
-
-
-            #qdot = a*(cont)#+b1*nu[4,0]
-            if(val>=v):
-                rdot = np.clip(a*(scaling),-c,c)#+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
-            else:
-                rdot = b*nu[5,0]
-
-
-
-            sol.compute_thrusts(udot, rdot, nu[0,0], nu[5,0])
+            sol.compute_thrusts(udot, qdot, rdot, nu[0,0], nu[4,0], nu[5,0])
             ESC = sol.getESC()
             #input("Press Enter to continue...")
 
@@ -116,6 +105,57 @@ def main(inp):
             if(visual):
                 R = Rotation.from_quat(orientation).as_matrix()
                 plot.plot(eta[:3], R)
+
+
+
+        #FOR 2M case
+
+        # if(count%1 == 0):
+        #     udot = -(nu[0,0]-0.5)
+        #     orientation = np.array([eta[3,0], eta[4,0], eta[5,0], eta[6,0]])
+        #     #TODO: make them negative... bcs?
+        #     pitch_diff, yaw_diff = gorx(eta)
+        #     a_p = pitch_diff+nu[4,0]
+        #     a_y = yaw_diff+nu[5,0]
+        #     #project the pitch diff and yaw diff onto the line y = z
+        #     line = np.array([1,-1])
+        #     norm = np.array([1,1])
+        #     vec = np.array([a_p, a_y])
+        #     # vec /=np.linalg.norm(vec)
+        #     scaling = (np.dot(vec, line)/np.dot(line, line))
+        #     nscaling = (np.dot(vec, norm)/np.dot(norm, norm))
+            
+        #     val = 6
+        #     if(nscaling!=0):
+        #         val = abs(scaling/nscaling)
+        #     # print(val)
+        #     #print(cont)
+        #     #print(nu[5,0])
+        #     #now we have the controllability of our vehicle. If it is very small (0), then we want ot go straight. If it is large positive or negative, want to steer the vehicle.
+
+
+        #     #qdot = a*(cont)#+b1*nu[4,0]
+        #     if(val>=v):
+        #         rdot = np.clip(a*(scaling),-c,c)#+b*nu[5,0]#-b*nu[5,0]#+b2*nu[5,0]
+        #     else:
+        #         rdot = b*nu[5,0]
+
+
+
+        #     sol.compute_thrusts(udot, rdot, nu[0,0], nu[5,0])
+        #     ESC = sol.getESC()
+        #     #input("Press Enter to continue...")
+
+        #     #ESC = np.array([[1500],[1900],[1500],[1900]])
+
+        #     if(mot==1):
+        #         ESC[3,0] = 1500
+        #     if(mot == 2):
+        #         ESC[3,0] = 1500
+        #         ESC[1,0] = 1500
+        #     if(visual):
+        #         R = Rotation.from_quat(orientation).as_matrix()
+        #         plot.plot(eta[:3], R)
 
         thrust = computeThrust(ESC)
         eta, nu = motion_model(eta, nu, thrust, dt)
@@ -290,7 +330,7 @@ def computeThrust(ESC):
     locs = np.array([m1p, m2p, m3p, m4p])
 
     #the constant for the motor created by each motor... multiply by 0-1 value of esc, between 1500-2000
-    c_1 = 0.01
+    c_1 = 0.03
     #now using lennarts model, assuming 0 moment produced by each motor.
     thrust = np.zeros((6,1), dtype = float)
     for i in range(0,4):
@@ -440,7 +480,7 @@ def world2bodyRot(theta):
     R = body2worldRot(theta)
     return np.linalg.inv(R)
 if __name__ == '__main__':
-    bounds = [(-40.0,0),(0,40.0),(0.0,5.0),(0.0,20.0)]
+    bounds = [(-30.0,0),(-30,0.0)]
 
     # Perform Bayesian optimization
     result = gp_minimize(
